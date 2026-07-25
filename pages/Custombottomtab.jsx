@@ -13,6 +13,7 @@ import {
   Truck,
   Package,
 } from 'lucide-react-native';
+import { useTheme, Fonts } from '../components/ThemeContext';
 
 /* ------------------------------------------------------------------ */
 /* Tab configuration                                                    */
@@ -21,25 +22,10 @@ import {
 const TABS = [
   { key: 'Dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { key: 'Orders', label: 'Orders', Icon: ShoppingBag },
-  { key: 'Delivery', label: 'Delivery', Icon: Truck },
-  { key: 'Pickup', label: 'Pickup', Icon: Package },
-];
 
-/* ------------------------------------------------------------------ */
-/* Colors — pulled straight from the dashboard screen's palette so the */
-/* tab bar matches the rest of the app. Edit here to re-theme.         */
-/* ------------------------------------------------------------------ */
-const COLORS = {
-  background: '#FFFFFF',
-  bubble: '#10B981', // primaryGreen
-  bubbleShadow: '#059669', // darkGreen
-  activeIcon: '#FFFFFF',
-  inactiveIcon: '#9CA3AF',
-  activeLabel: '#10B981',
-  inactiveLabel: '#9CA3AF',
-  badgeBg: '#F59E0B', // orange, matches "Pending" accents on the screen
-  badgeText: '#FFFFFF',
-};
+  { key: 'Pickup', label: 'Pickup', Icon: Package },
+  { key: 'Delivery', label: 'Delivery', Icon: Truck },
+];
 
 const ICON_SIZE = 20;
 const BUBBLE_SIZE = 48;
@@ -59,12 +45,17 @@ const formatBadgeCount = count => (count > 99 ? '99+' : String(count));
  * behind whichever tab is active. Pure React Native + Animated API,
  * no SVG, no Reanimated, no third-party UI libraries.
  *
+ * Colors and typography are pulled live from ThemeContext (useTheme),
+ * so the bar automatically re-themes when light/dark mode changes.
+ *
  * Props:
  * - activeTab  : string  -> currently selected tab key
  * - onTabPress : (key: string) => void -> called when a tab is tapped
  * - cartCount  : number  -> badge count shown on the Orders icon
  */
 const CustomBottomTab = ({ activeTab, onTabPress, cartCount = 0 }) => {
+  const { colors, typography } = useTheme();
+
   const activeIndex = useMemo(() => {
     const idx = TABS.findIndex(t => t.key === activeTab);
     return idx === -1 ? 0 : idx;
@@ -107,13 +98,23 @@ const CustomBottomTab = ({ activeTab, onTabPress, cartCount = 0 }) => {
   const ActiveIcon = TABS[activeIndex].Icon;
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.bottomTabBg,
+          shadowColor: colors.shadow,
+        },
+      ]}
+    >
       {/* Animated floating bubble — sits behind the active tab and
           slides across as activeTab changes. */}
       <Animated.View
         style={[
           styles.bubble,
           {
+            backgroundColor: colors.primary,
+            shadowColor: colors.DarkGreenColor,
             transform: [
               { translateX: bubbleTranslateX },
               { scale: bubbleScale },
@@ -123,14 +124,30 @@ const CustomBottomTab = ({ activeTab, onTabPress, cartCount = 0 }) => {
       >
         <ActiveIcon
           size={ICON_SIZE + 2}
-          color={COLORS.activeIcon}
+          color={colors.NavbarTextColour}
           strokeWidth={2.2}
         />
 
         {/* Cart badge on the bubble when Orders is the active tab */}
         {activeTab === 'Orders' && cartCount > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{formatBadgeCount(cartCount)}</Text>
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: colors.statusPickedUpText,
+                borderColor: colors.bottomTabBg,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                typography.small,
+                styles.badgeText,
+                { color: colors.NavbarTextColour },
+              ]}
+            >
+              {formatBadgeCount(cartCount)}
+            </Text>
           </View>
         )}
       </Animated.View>
@@ -160,14 +177,28 @@ const CustomBottomTab = ({ activeTab, onTabPress, cartCount = 0 }) => {
                 {!isActive && (
                   <Icon
                     size={ICON_SIZE}
-                    color={COLORS.inactiveIcon}
+                    color={colors.bottomTabInactiveText}
                     strokeWidth={2}
                   />
                 )}
 
                 {showStaticBadge && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
+                  <View
+                    style={[
+                      styles.badge,
+                      {
+                        backgroundColor: colors.statusPickedUpText,
+                        borderColor: colors.bottomTabBg,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        typography.small,
+                        styles.badgeText,
+                        { color: colors.NavbarTextColour },
+                      ]}
+                    >
                       {formatBadgeCount(cartCount)}
                     </Text>
                   </View>
@@ -176,8 +207,17 @@ const CustomBottomTab = ({ activeTab, onTabPress, cartCount = 0 }) => {
 
               <Text
                 style={[
+                  typography.small,
                   styles.label,
-                  isActive ? styles.labelActive : styles.labelInactive,
+                  isActive
+                    ? [
+                        styles.labelActive,
+                        { color: colors.bottomTabActiveText },
+                      ]
+                    : [
+                        styles.labelInactive,
+                        { color: colors.bottomTabInactiveText },
+                      ],
                 ]}
                 numberOfLines={1}
               >
@@ -194,11 +234,9 @@ const CustomBottomTab = ({ activeTab, onTabPress, cartCount = 0 }) => {
 const styles = StyleSheet.create({
   container: {
     height: BAR_HEIGHT,
-    backgroundColor: COLORS.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     // iOS shadow
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -226,11 +264,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   labelActive: {
-    color: COLORS.activeLabel,
     fontWeight: '700',
   },
   labelInactive: {
-    color: COLORS.inactiveLabel,
     fontWeight: '500',
   },
   bubble: {
@@ -239,10 +275,8 @@ const styles = StyleSheet.create({
     width: BUBBLE_SIZE,
     height: BUBBLE_SIZE,
     borderRadius: BUBBLE_SIZE / 2,
-    backgroundColor: COLORS.bubble,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: COLORS.bubbleShadow,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -256,15 +290,12 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: COLORS.badgeBg,
     paddingHorizontal: 3,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: COLORS.background,
   },
   badgeText: {
-    color: COLORS.badgeText,
     fontSize: 9,
     fontWeight: '700',
   },

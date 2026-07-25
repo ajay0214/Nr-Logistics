@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomHeader from '../components/CustomHeader';
 import CustomBottomTab from './Custombottomtab';
+import { useTheme } from '../components/ThemeContext';
 
 import {
   Menu,
@@ -31,131 +32,30 @@ import {
   User,
   Plus,
 } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
-
-const COLORS = {
-  background: '#FFFFFF',
-  screenBg: '#F7F8FA',
-  primaryGreen: '#10B981',
-  darkGreen: '#059669',
-  lightGreen: '#D1FAE5',
-  orange: '#F59E0B',
-  lightOrange: '#FEF3C7',
-  blue: '#3B82F6',
-  lightBlue: '#DBEAFE',
-  text: '#111827',
-  textSecondary: '#6B7280',
-  border: '#E5E7EB',
-  white: '#FFFFFF',
-};
+import Svg, { Path, Circle } from 'react-native-svg';
+import dashboardData from '../components/data.json';
 
 const RADIUS = {
   card: 24,
   button: 18,
 };
 
-const statsData = [
-  {
-    id: '1',
-    title: "Today's Deliveries",
-    value: '12',
-    unit: 'Orders',
-    trend: '+20%',
-    trendUp: true,
-    icon: Package,
-    graphColor: '#10B981',
-  },
-  {
-    id: '2',
-    title: 'Active Orders',
-    value: '24',
-    unit: 'Orders',
-    trend: '+15%',
-    trendUp: true,
-    icon: Shield,
-    graphColor: '#10B981',
-  },
-  {
-    id: '3',
-    title: 'Pending Pickups',
-    value: '8',
-    unit: 'Pickups',
-    trend: '-5%',
-    trendUp: false,
-    icon: Truck,
-    graphColor: '#F59E0B',
-  },
-  {
-    id: '4',
-    title: 'Completed Deliveries',
-    value: '156',
-    unit: 'Orders',
-    trend: '+25%',
-    trendUp: true,
-    icon: CheckCircle,
-    graphColor: '#10B981',
-  },
-];
-
-const quickActions = [
-  { id: '1', label: 'New Pickup', icon: Clipboard },
-  { id: '2', label: 'Track Shipment', icon: MapPin },
-  { id: '3', label: 'Scan QR', icon: Maximize },
-  { id: '4', label: 'Add Delivery', icon: Package },
-];
-
-const todaysDeliveries = [
-  {
-    id: '1',
-    orderId: '#ORD12345',
-    pickup: 'Mumbai, MH',
-    destination: 'Delhi, DL',
-    status: 'In Transit',
-    statusColor: '#3B82F6',
-    statusBg: '#DBEAFE',
-    time: '6:00 PM',
-  },
-  {
-    id: '2',
-    orderId: '#ORD12346',
-    pickup: 'Bangalore, KA',
-    destination: 'Hyderabad, TG',
-    status: 'Picked Up',
-    statusColor: '#F59E0B',
-    statusBg: '#FEF3C7',
-    time: '2:30 PM',
-  },
-];
-
-const recentActivity = [
-  {
-    id: '1',
-    title: 'Delivered',
-    subtitle: 'Order #ORD12344',
-    time: '10:30 AM',
-    type: 'delivered',
-  },
-  {
-    id: '2',
-    title: 'Picked Up',
-    subtitle: 'Order #ORD12346',
-    time: '09:15 AM',
-    type: 'pickedup',
-  },
-  {
-    id: '3',
-    title: 'In Transit',
-    subtitle: 'Order #ORD12345',
-    time: '08:40 AM',
-    type: 'intransit',
-  },
-];
-
-const ACTIVITY_TYPE_CONFIG = {
-  delivered: { icon: Check, color: '#10B981', bg: '#D1FAE5' },
-  pickedup: { icon: Box, color: '#F59E0B', bg: '#FEF3C7' },
-  intransit: { icon: Truck, color: '#3B82F6', bg: '#DBEAFE' },
-};
+// Converts a theme hex color (e.g. colors.primary) into an rgba() string
+// so it can be used for translucent glows/tracks that follow the theme.
+function hexToRgba(hex, alpha = 1) {
+  if (!hex) return `rgba(16, 185, 129, ${alpha})`;
+  let clean = hex.replace('#', '');
+  if (clean.length === 3) {
+    clean = clean
+      .split('')
+      .map(c => c + c)
+      .join('');
+  }
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 function Sparkline({ color = '#10B981', width = 80, height = 26 }) {
   const path = `M0,${height * 0.7} L${width * 0.15},${height * 0.5} L${
@@ -180,6 +80,45 @@ function Sparkline({ color = '#10B981', width = 80, height = 26 }) {
   );
 }
 
+// Circular progress ring used inside the Today's Progress card
+function ProgressRing({
+  percent = 0,
+  size = 64,
+  strokeWidth = 6,
+  color = '#10B981',
+  trackColor = 'rgba(255,255,255,0.15)',
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progressOffset = circumference - (circumference * percent) / 100;
+
+  return (
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <Circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke={trackColor}
+        strokeWidth={strokeWidth}
+        fill="none"
+      />
+      <Circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke={color}
+        strokeWidth={strokeWidth}
+        fill="none"
+        strokeDasharray={circumference}
+        strokeDashoffset={progressOffset}
+        strokeLinecap="round"
+        rotation="-90"
+        origin={`${size / 2}, ${size / 2}`}
+      />
+    </Svg>
+  );
+}
+
 function DashboardCard({
   icon: Icon,
   title,
@@ -189,34 +128,55 @@ function DashboardCard({
   trendUp,
   graphColor,
 }) {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.statCard}>
+    <View
+      style={[
+        styles.statCard,
+        { backgroundColor: colors.card, shadowColor: colors.shadow },
+      ]}
+    >
       <View style={styles.statTopRow}>
-        <View style={styles.statIconBox}>
-          <Icon size={18} color={COLORS.white} />
+        <View style={[styles.statIconBox, { backgroundColor: colors.primary }]}>
+          <Icon size={18} color={colors.NavbarTextColour} />
         </View>
-        <Text style={styles.statTitle}>{title}</Text>
+        <Text style={[styles.statTitle, { color: colors.subText }]}>
+          {title}
+        </Text>
       </View>
 
       <View style={styles.statValueRow}>
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statUnit}> {unit}</Text>
+        <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
+        <Text style={[styles.statUnit, { color: colors.subText }]}>
+          {' '}
+          {unit}
+        </Text>
       </View>
     </View>
   );
 }
 
 function QuickActionCard({ icon: Icon, label, onPress }) {
+  const { colors } = useTheme();
+
   return (
     <TouchableOpacity
-      style={styles.quickActionCard}
+      style={[styles.quickActionCard]}
       activeOpacity={0.8}
       onPress={onPress}
     >
-      <View style={styles.quickActionIconWrapper}>
-        <Icon size={20} color={COLORS.primaryGreen} />
+      <View
+        style={[
+          styles.quickActionIconWrapper,
+          { borderColor: colors.primary, backgroundColor: colors.primary },
+        ]}
+      >
+        <Icon size={20} color={colors.NavbarTextColour} />
       </View>
-      <Text style={styles.quickActionLabel}>{label}</Text>
+      <Text style={[styles.quickActionLabel, { color: colors.text }]}>
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -230,23 +190,63 @@ function DeliveryCard({
   statusBg,
   time,
 }) {
+  const { colors } = useTheme();
+
+  const statusTheme =
+    status === 'In Transit'
+      ? {
+          line: '#3B82F6',
+          boxBg: '#dbeafee6',
+          icon: '#2563EB',
+        }
+      : status === 'Picked Up'
+      ? {
+          line: '#F59E0B',
+          boxBg: '#FEF3C7',
+          icon: '#D97706',
+        }
+      : {
+          line: '#22C55E',
+          boxBg: '#DCFCE7',
+          icon: '#16A34A',
+        };
+
   return (
-    <TouchableOpacity style={styles.deliveryCard} activeOpacity={0.8}>
-      <View style={styles.deliveryIconBox}>
-        <Box size={18} color={COLORS.primaryGreen} />
+    <TouchableOpacity
+      style={[styles.deliveryCard, { borderBottomColor: colors.border }]}
+      activeOpacity={0.8}
+    >
+      <View
+        style={[styles.leftIndicator, { backgroundColor: statusTheme.line }]}
+      />
+      <View
+        style={[
+          styles.deliveryIconBox,
+          {
+            backgroundColor: statusTheme.boxBg,
+          },
+        ]}
+      >
+        <Box size={18} color={statusTheme.icon} />
       </View>
 
       <View style={styles.deliveryMiddle}>
-        <Text style={styles.deliveryOrderId}>{orderId}</Text>
+        <Text style={[styles.deliveryOrderId, { color: colors.text }]}>
+          {orderId}
+        </Text>
         <View style={styles.deliveryRouteRow}>
-          <MapPin size={11} color={COLORS.textSecondary} />
-          <Text style={styles.deliveryRouteText}>{pickup}</Text>
+          <MapPin size={11} color={colors.subText} />
+          <Text style={[styles.deliveryRouteText, { color: colors.subText }]}>
+            {pickup}
+          </Text>
           <MapPin
             size={11}
-            color={COLORS.textSecondary}
+            color={colors.subText}
             style={styles.deliveryRouteIconSpacing}
           />
-          <Text style={styles.deliveryRouteText}>{destination}</Text>
+          <Text style={[styles.deliveryRouteText, { color: colors.subText }]}>
+            {destination}
+          </Text>
         </View>
       </View>
 
@@ -257,107 +257,218 @@ function DeliveryCard({
           </Text>
         </View>
         <View style={styles.deliveryTimeRow}>
-          <Clock size={11} color={COLORS.textSecondary} />
-          <Text style={styles.deliveryTimeText}>{time}</Text>
+          <Clock size={11} color={colors.subText} />
+          <Text style={[styles.deliveryTimeText, { color: colors.subText }]}>
+            {time}
+          </Text>
         </View>
       </View>
 
-      <ChevronRight size={18} color={COLORS.textSecondary} />
+      <ChevronRight size={18} color={colors.subText} />
     </TouchableOpacity>
   );
 }
 
-function ActivityItem({ title, subtitle, time, type }) {
-  const config = ACTIVITY_TYPE_CONFIG[type] || ACTIVITY_TYPE_CONFIG.delivered;
-  const Icon = config.icon;
+// Replaces the old ActivityItem / Recent Activity list.
+// Dark navy card with a linear progress bar on the left and a
+// circular progress ring (with a truck icon) on the right.
+function TodaysProgressCard({ completed, total }) {
+  const { colors } = useTheme();
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  // Use the app's existing green accent (colors.primary / colors.DarkGreenColor)
+  // instead of a hardcoded blue, so this card follows the theme like the
+  // rest of the dashboard.
+  const accentColor = colors.primary;
+  const accentDark = colors.DarkGreenColor || colors.primary;
 
   return (
-    <View style={styles.activityRow}>
-      <View style={[styles.activityIconCircle, { backgroundColor: config.bg }]}>
-        <Icon size={14} color={config.color} />
-      </View>
+    <View
+      style={[
+        styles.card,
+        styles.lastCard,
+        styles.progressCard,
+        { backgroundColor: accentDark, shadowColor: accentDark },
+      ]}
+    >
+      <View
+        style={[
+          styles.progressGlowOne,
+          { backgroundColor: hexToRgba(accentColor, 0.22) },
+        ]}
+        pointerEvents="none"
+      />
+      <View
+        style={[
+          styles.progressGlowTwo,
+          { backgroundColor: hexToRgba(accentColor, 0.12) },
+        ]}
+        pointerEvents="none"
+      />
 
-      <View style={styles.activityMiddle}>
-        <Text style={[styles.activityTitle, { color: config.color }]}>
-          {title}
-        </Text>
-        <Text style={styles.activitySubtitle}>{subtitle}</Text>
-      </View>
+      <View style={styles.progressRow}>
+        <View style={styles.progressLeft}>
+          <Text
+            style={[
+              styles.progressTitle,
+              { color: hexToRgba('#FFFFFF', 0.65) },
+            ]}
+          >
+            Today's Progress
+          </Text>
 
-      <Text style={styles.activityTime}>{time}</Text>
+          <View style={styles.progressPercentRow}>
+            <Text style={styles.progressPercentValue}>{percent}%</Text>
+            <Text style={[styles.progressPercentLabel, { color: '#FFFFFF' }]}>
+              {' '}
+              Completed
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.progressBarTrack,
+              { backgroundColor: hexToRgba('#FFFFFF', 0.15) },
+            ]}
+          >
+            <View
+              style={[
+                styles.progressBarFill,
+                { width: `${percent}%`, backgroundColor: '#FFFFFF' },
+              ]}
+            />
+          </View>
+
+          <Text
+            style={[
+              styles.progressSubText,
+              { color: hexToRgba('#FFFFFF', 0.55) },
+            ]}
+          >
+            {completed} of {total} deliveries completed
+          </Text>
+        </View>
+
+        <View style={styles.progressRingWrapper}>
+          <ProgressRing
+            percent={percent}
+            color={accentColor}
+            trackColor={hexToRgba('#FFFFFF', 0.15)}
+          />
+          <View
+            style={[
+              styles.progressRingIconBox,
+              { backgroundColor: accentColor },
+            ]}
+          >
+            <Truck size={20} color={colors.NavbarTextColour} />
+          </View>
+        </View>
+      </View>
     </View>
   );
 }
 
 export default function DashboardScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('Dashboard');
+  const { colors, typography, isDark } = useTheme();
 
+  const todaysDeliveries = dashboardData.orders.filter(
+    order => order.status === 'In Transit' || order.status === 'Picked Up',
+  );
+
+  const IconMap = {
+    Package,
+    Shield,
+    Truck,
+    CheckCircle,
+    Plus,
+    MapPin,
+    Maximize,
+  };
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.screenBg} />
-      <CustomHeader
-        title="Pickup details"
-        leftIcon="back"
-        rightIcons={['bell', 'user']}
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
+      edges={['top']}
+    >
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
       />
+      <CustomHeader showLogo rightIcons={['bell', 'user']} leftIcon={null} />
 
       <ScrollView
         style={styles.flex}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.greetingBlock}>
-          <Text style={styles.greetingText}>Good Morning 👋</Text>
-          <Text style={styles.welcomeText}>
-            Welcome, <Text style={styles.welcomeName}>John</Text>
-          </Text>
-          <Text style={styles.subText}>
-            Manage your deliveries{'\n'}and shipments with ease.
-          </Text>
-        </View>
+        <Text style={styles.greetingText}>
+          {dashboardData.user.greeting} 👋
+        </Text>
 
+        <Text style={styles.welcomeText}>
+          Welcome,
+          <Text style={{ color: colors.primary }}>
+            {' '}
+            {dashboardData.user.name}
+          </Text>
+        </Text>
+
+        <Text style={styles.subText}>{dashboardData.user.welcomeSubtitle}</Text>
         <View style={styles.statsGrid}>
-          {statsData.map(item => (
+          {dashboardData.stats.map(item => (
             <DashboardCard
               key={item.id}
-              icon={item.icon}
+              icon={IconMap[item.icon]}
               title={item.title}
               value={item.value}
               unit={item.unit}
               trend={item.trend}
               trendUp={item.trendUp}
-              graphColor={item.graphColor}
             />
           ))}
         </View>
 
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Quick Actions
+          </Text>
           <TouchableOpacity activeOpacity={0.7}>
             <View style={styles.viewAllRow}>
-              <Text style={styles.viewAllText}>View All</Text>
-              <ChevronRight size={14} color={COLORS.primaryGreen} />
+              <Text style={[styles.viewAllText, { color: colors.primary }]}>
+                View All
+              </Text>
+              <ChevronRight size={14} color={colors.primary} />
             </View>
           </TouchableOpacity>
         </View>
 
         <View style={styles.quickActionsRow}>
-          {quickActions.map(item => (
+          {dashboardData.quickActions.map(item => (
             <QuickActionCard
               key={item.id}
-              icon={item.icon}
               label={item.label}
+              icon={IconMap[item.icon]}
             />
           ))}
         </View>
 
-        <View style={styles.card}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, shadowColor: colors.shadow },
+          ]}
+        >
           <View style={styles.cardSectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Today's Deliveries</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Today's Deliveries
+            </Text>
             <TouchableOpacity activeOpacity={0.7}>
               <View style={styles.viewAllRow}>
-                <Text style={styles.viewAllText}>View All</Text>
-                <ChevronRight size={14} color={COLORS.primaryGreen} />
+                <Text style={[styles.viewAllText, { color: colors.primary }]}>
+                  View All
+                </Text>
+                <ChevronRight size={14} color={colors.primary} />
               </View>
             </TouchableOpacity>
           </View>
@@ -366,42 +477,30 @@ export default function DashboardScreen({ navigation }) {
             <DeliveryCard
               key={item.id}
               orderId={item.orderId}
-              pickup={item.pickup}
-              destination={item.destination}
+              pickup={item.pickup.city}
+              destination={item.destination.city}
               status={item.status}
-              statusColor={item.statusColor}
-              statusBg={item.statusBg}
               time={item.time}
+              statusBg={
+                item.status === 'In Transit'
+                  ? colors.statusInTransitBg
+                  : colors.statusPickedUpBg
+              }
+              statusColor={
+                item.status === 'In Transit'
+                  ? colors.statusInTransitText
+                  : colors.statusPickedUpText
+              }
             />
           ))}
         </View>
 
-        <View style={[styles.card, styles.lastCard]}>
-          <View style={styles.cardSectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <TouchableOpacity activeOpacity={0.7}>
-              <View style={styles.viewAllRow}>
-                <Text style={styles.viewAllText}>View All</Text>
-                <ChevronRight size={14} color={COLORS.primaryGreen} />
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {recentActivity.map(item => (
-            <ActivityItem
-              key={item.id}
-              title={item.title}
-              subtitle={item.subtitle}
-              time={item.time}
-              type={item.type}
-            />
-          ))}
-        </View>
+        {/* Today's Progress card (replaces Recent Activity) */}
+        <TodaysProgressCard
+          completed={dashboardData.progress.completed}
+          total={dashboardData.progress.total}
+        />
       </ScrollView>
-
-      <TouchableOpacity style={styles.fab} activeOpacity={0.85}>
-        <Plus size={26} color={COLORS.white} />
-      </TouchableOpacity>
 
       <CustomBottomTab
         activeTab="Dashboard"
@@ -434,7 +533,6 @@ export default function DashboardScreen({ navigation }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.screenBg,
   },
   flex: {
     flex: 1,
@@ -454,10 +552,8 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: COLORS.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,
@@ -470,9 +566,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: COLORS.primaryGreen,
     borderWidth: 1.5,
-    borderColor: COLORS.white,
   },
   greetingBlock: {
     marginBottom: 24,
@@ -480,22 +574,17 @@ const styles = StyleSheet.create({
   greetingText: {
     fontSize: 14,
     fontWeight: '400',
-    color: COLORS.textSecondary,
     marginBottom: 4,
   },
   welcomeText: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.text,
     marginBottom: 6,
   },
-  welcomeName: {
-    color: COLORS.primaryGreen,
-  },
+  welcomeName: {},
   subText: {
     fontSize: 13,
     fontWeight: '400',
-    color: COLORS.textSecondary,
     lineHeight: 18,
   },
   statsGrid: {
@@ -505,11 +594,9 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    backgroundColor: COLORS.white,
     borderRadius: RADIUS.card,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
@@ -524,7 +611,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: COLORS.primaryGreen,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -533,7 +619,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '400',
-    color: COLORS.textSecondary,
   },
   statValueRow: {
     flexDirection: 'row',
@@ -543,12 +628,10 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.text,
   },
   statUnit: {
     fontSize: 13,
     fontWeight: '500',
-    color: COLORS.textSecondary,
   },
   statBottomRow: {
     flexDirection: 'row',
@@ -577,7 +660,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.text,
   },
   viewAllRow: {
     flexDirection: 'row',
@@ -586,7 +668,6 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontSize: 12,
     fontWeight: '500',
-    color: COLORS.primaryGreen,
     marginRight: 2,
   },
   quickActionsRow: {
@@ -597,23 +678,20 @@ const styles = StyleSheet.create({
   quickActionCard: {
     width: '23%',
     aspectRatio: 0.85,
-    backgroundColor: COLORS.white,
     borderRadius: RADIUS.button,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    //shadowOffset: { width: 0, height: 3 },
+    //shadowOpacity: 0.05,
+    //shadowRadius: 8,
+    //elevation: 2,
   },
   quickActionIconWrapper: {
     width: 40,
     height: 40,
     borderRadius: 12,
     borderWidth: 1.4,
-    borderColor: COLORS.primaryGreen,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -621,15 +699,12 @@ const styles = StyleSheet.create({
   quickActionLabel: {
     fontSize: 11,
     fontWeight: '500',
-    color: COLORS.text,
     textAlign: 'center',
   },
   card: {
-    backgroundColor: COLORS.white,
     borderRadius: RADIUS.card,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
@@ -648,14 +723,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
   deliveryIconBox: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: COLORS.lightGreen,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -666,7 +738,6 @@ const styles = StyleSheet.create({
   deliveryOrderId: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.text,
     marginBottom: 4,
   },
   deliveryRouteRow: {
@@ -675,7 +746,6 @@ const styles = StyleSheet.create({
   },
   deliveryRouteText: {
     fontSize: 11,
-    color: COLORS.textSecondary,
     marginLeft: 3,
   },
   deliveryRouteIconSpacing: {
@@ -701,37 +771,87 @@ const styles = StyleSheet.create({
   },
   deliveryTimeText: {
     fontSize: 11,
-    color: COLORS.textSecondary,
     marginLeft: 3,
   },
-  activityRow: {
+  // --- Today's Progress card styles (replaces old activityRow styles) ---
+  progressCard: {
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  progressGlowOne: {
+    position: 'absolute',
+    top: -40,
+    right: -30,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+  },
+  progressGlowTwo: {
+    position: 'absolute',
+    bottom: -50,
+    left: -20,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+  progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    justifyContent: 'space-between',
   },
-  activityIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  progressLeft: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  progressTitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.65)',
+    marginBottom: 8,
+  },
+  progressPercentRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 12,
+  },
+  progressPercentValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  progressPercentLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.65)',
+  },
+  progressBarTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressSubText: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.55)',
+  },
+  progressRingWrapper: {
+    width: 64,
+    height: 64,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-  activityMiddle: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  activitySubtitle: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-  },
-  activityTime: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
+  progressRingIconBox: {
+    position: 'absolute',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fab: {
     position: 'absolute',
@@ -740,10 +860,8 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 20,
-    backgroundColor: COLORS.primaryGreen,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: COLORS.darkGreen,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
@@ -755,9 +873,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 10,
     paddingBottom: 10,
-    backgroundColor: COLORS.white,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
   },
   bottomTab: {
     flex: 1,
@@ -768,5 +884,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '500',
     marginTop: 4,
+  },
+  leftIndicator: {
+    width: 4,
+    height: 46,
+    borderRadius: 20,
+    marginRight: 14,
   },
 });
