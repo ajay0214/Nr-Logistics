@@ -60,20 +60,22 @@
     {
       "id": "1",
       "orderId": "#ORD12345",
-      "status": "In Transit",
+      "status": "Picked Up",
       "statusNote": "Order out for delivery",
-      "date": "20 Jul 2026",
+      "date": "27 Jul 2026",
       "time": "6:00 PM",
       "packages": 2,
+      "priority": "Low",
+      "deliveryIn": "Today",
       "pickup": {
         "city": "Mumbai, MH",
         "address": "Andheri East, Mumbai, Maharashtra 400069",
-        "note": "Picked up: 20 Jul 2026, 10:30 AM"
+        "note": "Picked up: 27 Jul 2026, 10:30 AM"
       },
       "destination": {
         "city": "Delhi, DL",
         "address": "Connaught Place, New Delhi, Delhi 110001",
-        "note": "Expected Delivery: 20 Jul 2026, 6:00 PM"
+        "note": "Expected Delivery: 27 Jul 2026, 6:00 PM"
       },
       "customerName": "Rahul Sharma",
       "contactNumber": "+91 98765 43210",
@@ -86,18 +88,20 @@
       "orderId": "#ORD12346",
       "status": "Picked Up",
       "statusNote": "Package picked up from sender",
-      "date": "19 Jul 2026",
+      "date": "27 Jul 2026",
       "time": "2:30 PM",
       "packages": 1,
+      "priority": "Low",
+      "deliveryIn": "In 1 Day",
       "pickup": {
         "city": "Bangalore, KA",
         "address": "Koramangala, Bangalore, Karnataka 560034",
-        "note": "Picked up: 19 Jul 2026, 2:30 PM"
+        "note": "Picked up: 27 Jul 2026, 2:30 PM"
       },
       "destination": {
         "city": "Hyderabad, TG",
         "address": "Banjara Hills, Hyderabad, Telangana 500034",
-        "note": "Expected Delivery: 20 Jul 2026, 5:00 PM"
+        "note": "Expected Delivery: 28 Jul 2026, 5:00 PM"
       },
       "customerName": "Priya Reddy",
       "contactNumber": "+91 98450 11223",
@@ -107,12 +111,66 @@
     },
     {
       "id": "3",
+      "orderId": "#ORD12351",
+      "status": "Picked Up",
+      "statusNote": "Order out for delivery",
+      "date": "27 Jul 2026",
+      "time": "3:00 PM",
+      "packages": 4,
+      "priority": "Low",
+      "deliveryIn": "In 2 Days",
+      "pickup": {
+        "city": "Chennai, TN",
+        "address": "T. Nagar, Chennai, Tamil Nadu 600017",
+        "note": "Picked up: 27 Jul 2026, 9:15 AM"
+      },
+      "destination": {
+        "city": "Bengaluru, KA",
+        "address": "Indiranagar, Bengaluru, Karnataka 560038",
+        "note": "Expected Delivery: 29 Jul 2026, 3:00 PM"
+      },
+      "customerName": "Sanjay Iyer",
+      "contactNumber": "+91 90000 12345",
+      "paymentMethod": "Prepaid",
+      "orderTotal": "\u20B94,120.00",
+      "deliveryNotes": "Office delivery — security desk on ground floor."
+    },
+    {
+      "id": "4",
+      "orderId": "#ORD12352",
+      "status": "Picked Up",
+      "statusNote": "Package picked up from sender",
+      "date": "27 Jul 2026",
+      "time": "11:30 AM",
+      "packages": 2,
+      "priority": "Low",
+      "deliveryIn": "In 3 Days",
+      "pickup": {
+        "city": "Pune, MH",
+        "address": "Kothrud, Pune, Maharashtra 411038",
+        "note": "Picked up: 27 Jul 2026, 11:30 AM"
+      },
+      "destination": {
+        "city": "Nagpur, MH",
+        "address": "Sitabuldi, Nagpur, Maharashtra 440012",
+        "note": "Expected Delivery: 30 Jul 2026, 1:45 PM"
+      },
+      "customerName": "Vivek Deshmukh",
+      "contactNumber": "+91 91234 56780",
+      "paymentMethod": "Cash on Delivery",
+      "orderTotal": "\u20B91,750.00",
+      "deliveryNotes": "Call before arriving at gate."
+    },
+    {
+      "id": "5",
       "orderId": "#ORD12347",
-      "status": "Delivered",
+      "status": "Picked Up",
       "statusNote": "Order delivered successfully",
       "date": "18 Jul 2026",
       "time": "4:15 PM",
       "packages": 3,
+      "priority": "Medium",
+      "deliveryIn": "Delivered",
       "pickup": {
         "city": "Chennai, TN",
         "address": "T. Nagar, Chennai, Tamil Nadu 600017",
@@ -130,13 +188,15 @@
       "deliveryNotes": "Fragile items — handle with care."
     },
     {
-      "id": "4",
+      "id": "6",
       "orderId": "#ORD12348",
-      "status": "Cancelled",
+      "status": "Picked Up",
       "statusNote": "Order cancelled by customer",
       "date": "17 Jul 2026",
       "time": "11:00 AM",
       "packages": 1,
+      "priority": "Medium",
+      "deliveryIn": "Cancelled",
       "pickup": {
         "city": "Kolkata, WB",
         "address": "Salt Lake, Kolkata, West Bengal 700064",
@@ -154,13 +214,15 @@
       "deliveryNotes": "Customer requested cancellation before pickup."
     },
     {
-      "id": "5",
+      "id": "7",
       "orderId": "#ORD12349",
-      "status": "Delivered",
+      "status": "Picked Up",
       "statusNote": "Order delivered successfully",
       "date": "16 Jul 2026",
       "time": "1:45 PM",
       "packages": 2,
+      "priority": "Medium",
+      "deliveryIn": "Delivered",
       "pickup": {
         "city": "Pune, MH",
         "address": "Kothrud, Pune, Maharashtra 411038",
@@ -178,13 +240,15 @@
       "deliveryNotes": "Call before arriving at gate."
     },
     {
-      "id": "6",
+      "id": "8",
       "orderId": "#ORD12350",
-      "status": "Delivered",
+      "status": "Picked Up",
       "statusNote": "Order delivered successfully",
       "date": "15 Jul 2026",
       "time": "5:20 PM",
       "packages": 1,
+      "priority": "High",
+      "deliveryIn": "Delivered",
       "pickup": {
         "city": "Ahmedabad, GJ",
         "address": "Navrangpura, Ahmedabad, Gujarat 380009",

@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
-  Modal,
-  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomHeader from '../components/CustomHeader';
@@ -23,14 +21,18 @@ import {
   PackageCheck,
   PackageX,
   Inbox,
-  X,
+  Check,
+  Flame,
+  AlertCircle,
+  ArrowDownCircle,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react-native';
 
 const RADIUS = {
   card: 24,
   button: 18,
   pill: 20,
-  modal: 22,
 };
 
 const buildStatusConfig = colors => ({
@@ -56,18 +58,58 @@ const buildStatusConfig = colors => ({
   },
 });
 
-function OrderCard({ order, onPick }) {
+// Priority config — icon + color + bg based on priority value
+const buildPriorityConfig = () => ({
+  High: {
+    icon: Flame,
+    color: '#E53935',
+    bg: '#FDECEA',
+  },
+  Medium: {
+    icon: AlertCircle,
+    color: '#FB8C00',
+    bg: '#FFF3E0',
+  },
+  Low: {
+    icon: ArrowDownCircle,
+    color: '#43A047',
+    bg: '#E8F5E9',
+  },
+  Completed: {
+    icon: CheckCircle2,
+    color: '#1E88E5',
+    bg: '#E3F2FD',
+  },
+  Cancelled: {
+    icon: XCircle,
+    color: '#757575',
+    bg: '#EEEEEE',
+  },
+});
+
+function OrderCard({ order, selected, onToggle }) {
   const { colors } = useTheme();
   const STATUS_CONFIG = buildStatusConfig(colors);
-  const { orderId, pickup, destination, date, packages, status } = order;
+  const PRIORITY_CONFIG = buildPriorityConfig();
+  const { orderId, pickup, destination, date, packages, status, priority } =
+    order;
   const config = STATUS_CONFIG[status] || STATUS_CONFIG['In Transit'];
   const Icon = config.icon;
 
+  const priorityConfig = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG['Medium'];
+  const PriorityIcon = priorityConfig.icon;
+
   return (
-    <View
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => onToggle(order)}
       style={[
         styles.orderCard,
-        { backgroundColor: colors.card, shadowColor: colors.shadow },
+        {
+          backgroundColor: colors.card,
+          shadowColor: colors.shadow,
+          borderColor: selected ? colors.primary : 'transparent',
+        },
       ]}
     >
       <View style={styles.orderTopRow}>
@@ -76,34 +118,52 @@ function OrderCard({ order, onPick }) {
         </View>
 
         <View style={styles.routeCol}>
-          <Text style={[styles.orderId, { color: colors.text, marginTop: 8 }]}>
-            {orderId}
-          </Text>
-
-          <View style={{ flexDirection: 'column' }}>
-            <View style={styles.routeRow}>
-              <View
-                style={[styles.routeDot, { backgroundColor: colors.primary }]}
-              />
-              <Text
-                style={[styles.routeText, { color: colors.text }]}
-                numberOfLines={1}
-              >
-                {pickup.city}
+          <View style={{ flex: 1 }}>
+            <View style={styles.orderIdRow}>
+              <Text style={[styles.orderId, { color: colors.text }]}>
+                {orderId}
               </Text>
+
+              <View
+                style={[
+                  styles.priorityBadge,
+                  { backgroundColor: priorityConfig.bg },
+                ]}
+              >
+                <PriorityIcon size={12} color={priorityConfig.color} />
+                <Text
+                  style={[styles.priorityText, { color: priorityConfig.color }]}
+                >
+                  {priority}
+                </Text>
+              </View>
             </View>
 
-            <View style={styles.routeRow}>
-              <MapPin size={12} color={colors.subText} />
-              <Text
-                style={[
-                  styles.routeText,
-                  { color: colors.subText, marginLeft: 6 },
-                ]}
-                numberOfLines={1}
-              >
-                {destination.city}
-              </Text>
+            <View style={{ flexDirection: 'column', marginLeft: 140 }}>
+              <View style={styles.routeRow}>
+                <View
+                  style={[styles.routeDot, { backgroundColor: colors.primary }]}
+                />
+                <Text
+                  style={[styles.routeText, { color: colors.text }]}
+                  numberOfLines={1}
+                >
+                  {pickup.city}
+                </Text>
+              </View>
+
+              <View style={styles.routeRow}>
+                <MapPin size={12} color={colors.subText} />
+                <Text
+                  style={[
+                    styles.routeText,
+                    { color: colors.subText, marginLeft: 6 },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {destination.city}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -123,120 +183,56 @@ function OrderCard({ order, onPick }) {
               {packages} {packages > 1 ? 'Packages' : 'Package'}
             </Text>
           </View>
-        </View>
 
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => onPick(order)}
-          style={[
-            styles.pickButton,
-            { backgroundColor: colors.success || '#1FAA59' },
-          ]}
-        >
-          <Text style={styles.pickButtonText}>Pick</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-function ConfirmPickModal({ visible, order, onCancel, onConfirm }) {
-  const { colors } = useTheme();
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onCancel}
-    >
-      <Pressable style={styles.modalBackdrop} onPress={onCancel}>
-        <Pressable
-          style={[
-            styles.modalCard,
-            { backgroundColor: colors.card, shadowColor: colors.shadow },
-          ]}
-          onPress={() => {}}
-        >
           <TouchableOpacity
-            style={styles.modalCloseBtn}
-            onPress={onCancel}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <X size={18} color={colors.subText} />
-          </TouchableOpacity>
-
-          <View
+            activeOpacity={0.8}
+            onPress={() => onToggle(order)}
             style={[
-              styles.modalIconWrap,
-              { backgroundColor: colors.statusPickedUpBg },
+              styles.pickButton,
+              {
+                backgroundColor: selected
+                  ? colors.success || '#1FAA59'
+                  : colors.primary,
+              },
             ]}
           >
-            <Package size={26} color={colors.statusPickedUpText} />
-          </View>
-
-          <Text style={[styles.modalTitle, { color: colors.text }]}>
-            Confirm Pickup
-          </Text>
-          <Text style={[styles.modalSubtitle, { color: colors.subText }]}>
-            Mark order {order?.orderId} as picked up from {order?.pickup.city}?
-          </Text>
-
-          <View style={styles.modalActionsRow}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={onCancel}
-              style={[
-                styles.modalButton,
-                styles.modalCancelButton,
-                { borderColor: colors.border },
-              ]}
-            >
-              <Text style={[styles.modalCancelText, { color: colors.subText }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={onConfirm}
-              style={[
-                styles.modalButton,
-                styles.modalConfirmButton,
-                { backgroundColor: colors.success || '#1FAA59' },
-              ]}
-            >
-              <Text style={styles.modalConfirmText}>Confirm</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+            {selected ? (
+              <>
+                <Check size={13} color="#FFFFFF" />
+                <Text style={styles.pickButtonText}>Picked</Text>
+              </>
+            ) : (
+              <Text style={styles.pickButtonText}>Pick</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 }
 
 export default function OrdersScreen({ navigation }) {
   const { colors, isDark } = useTheme();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const orders = useMemo(() => dashboardData.orders, []);
-  const handlePick = order => {
-    setSelectedOrder(order);
-    setModalVisible(true);
+
+  const handleToggle = order => {
+    setSelectedIds(prev =>
+      prev.includes(order.id)
+        ? prev.filter(id => id !== order.id)
+        : [...prev, order.id],
+    );
   };
 
-  const handleCancel = () => {
-    setModalVisible(false);
-    setSelectedOrder(null);
-  };
+  const handlePickSelected = () => {
+    const pickedOrders = orders.filter(order => selectedIds.includes(order.id));
 
-  const handleConfirm = () => {
-    setModalVisible(false);
     navigation.navigate('Pickup', {
-      order: selectedOrder,
+      orders: pickedOrders,
     });
-    setSelectedOrder(null);
+
+    setSelectedIds([]);
   };
 
   return (
@@ -256,7 +252,10 @@ export default function OrdersScreen({ navigation }) {
 
       <ScrollView
         style={styles.flex}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          selectedIds.length > 0 && { paddingBottom: 170 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {orders.length === 0 ? (
@@ -268,17 +267,32 @@ export default function OrdersScreen({ navigation }) {
           </View>
         ) : (
           orders.map(item => (
-            <OrderCard key={item.id} order={item} onPick={handlePick} />
+            <OrderCard
+              key={item.id}
+              order={item}
+              selected={selectedIds.includes(item.id)}
+              onToggle={handleToggle}
+            />
           ))
         )}
       </ScrollView>
 
-      <ConfirmPickModal
-        visible={modalVisible}
-        order={selectedOrder}
-        onCancel={handleCancel}
-        onConfirm={handleConfirm}
-      />
+      {selectedIds.length > 0 ? (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handlePickSelected}
+          style={[
+            styles.pickBar,
+            { backgroundColor: colors.success || '#1FAA59' },
+          ]}
+        >
+          <Package size={18} color="#FFFFFF" />
+          <Text style={styles.pickBarText}>
+            Pick {selectedIds.length}{' '}
+            {selectedIds.length > 1 ? 'Orders' : 'Order'}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       <CustomBottomTab
         activeTab="Orders"
@@ -329,6 +343,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.card,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 2,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
@@ -351,10 +366,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  orderIdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
   orderId: {
     fontSize: 15,
     fontWeight: '700',
-    marginBottom: 6,
+  },
+  priorityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginRight: 30,
+  },
+  priorityText: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginLeft: 4,
   },
   routeRow: {
     flexDirection: 'row',
@@ -371,6 +404,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     flexShrink: 1,
+  },
+  pickButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: RADIUS.button,
+    marginLeft: 40,
+    marginTop: 2,
+  },
+  pickButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 4,
   },
   orderFooterRow: {
     flexDirection: 'row',
@@ -393,16 +442,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginLeft: 5,
   },
-  pickButton: {
-    paddingHorizontal: 22,
-    paddingVertical: 8,
-    borderRadius: RADIUS.button,
-  },
-  pickButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -412,78 +451,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 10,
   },
-
-  // Modal styles
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  modalCard: {
-    width: '100%',
-    borderRadius: RADIUS.modal,
-    padding: 24,
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  modalCloseBtn: {
+  pickBar: {
     position: 'absolute',
-    top: 14,
-    right: 14,
-    padding: 4,
-  },
-  modalIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 22,
-  },
-  modalActionsRow: {
+    left: 24,
+    right: 24,
+    bottom: 100,
+    height: 54,
+    borderRadius: RADIUS.pill,
     flexDirection: 'row',
-    width: '100%',
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: RADIUS.button,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  modalCancelButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    marginRight: 10,
-  },
-  modalCancelText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  modalConfirmButton: {
-    marginLeft: 10,
-  },
-  modalConfirmText: {
-    fontSize: 14,
+  pickBarText: {
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+    marginLeft: 8,
   },
 });

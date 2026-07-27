@@ -12,7 +12,13 @@ import CustomHeader from '../components/CustomHeader';
 import CustomBottomTab from './Custombottomtab';
 import { useTheme } from '../components/ThemeContext';
 
-import { MapPin, Calendar, Package, Check, Inbox } from 'lucide-react-native';
+import {
+  MapPin,
+  Calendar,
+  Package,
+  ShieldCheck,
+  Inbox,
+} from 'lucide-react-native';
 
 const RADIUS = {
   card: 24,
@@ -49,16 +55,11 @@ const DELIVERED_ORDERS = [
   },
 ];
 
-// Maps the sample `tileColorKey` to the same status-accent tokens used
-// on the Orders screen, so this stays in sync with light/dark mode.
 const buildTileColors = colors => ({
   blue: { bg: colors.statusInTransitBg, icon: colors.statusInTransitText },
   orange: { bg: colors.statusPickedUpBg, icon: colors.statusPickedUpText },
 });
 
-// Converts the full order object passed via route.params (same shape as
-// data.json / OrdersScreen) into the flat shape DeliveredOrderCard
-// expects (orderId, pickup, destination, date, packages, tileColorKey).
 function mapRouteOrderToCard(order) {
   if (!order) return null;
 
@@ -153,16 +154,11 @@ function DeliveredOrderCard({ order }) {
             </Text>
           </View>
 
-          <View
-            style={[
-              styles.checkCircle,
-              { backgroundColor: colors.primary, borderColor: colors.primary },
-            ]}
-          >
-            <Check
-              size={18}
-              color={colors.NavbarTextColour}
-              strokeWidth={2.5}
+          <View style={styles.checkCircle}>
+            <ShieldCheck
+              size={RADIUS.checkCircle * 1.5}
+              color={colors.success || colors.DarkGreenColor || '#1FAA59'}
+              strokeWidth={1.5}
             />
           </View>
         </View>
@@ -367,14 +363,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 10,
   },
-  deliveredBadgeText: {},
+
   checkCircle: {
     width: RADIUS.checkCircle * 1.5,
     height: RADIUS.checkCircle * 1.5,
-    borderRadius: RADIUS.checkCircle,
-
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 20,
   },
   orderDivider: {
     borderTopWidth: 1,

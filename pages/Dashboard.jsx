@@ -377,6 +377,32 @@ export default function DashboardScreen({ navigation }) {
     order => order.status === 'In Transit' || order.status === 'Picked Up',
   );
 
+  // ---- Live stat counts derived from data.json (instead of the static
+  // "value" field), so the dashboard always reflects the actual orders
+  // currently in the data file. ----
+  const todaysDeliveriesCount = dashboardData.orders.filter(
+    order => order.deliveryIn === 'Today',
+  ).length;
+
+  const activeOrdersCount = dashboardData.orders.filter(
+    order => order.status === 'In Transit' || order.status === 'Picked Up',
+  ).length;
+
+  const pendingPickupsCount = dashboardData.orders.filter(
+    order => order.status === 'Picked Up',
+  ).length;
+
+  const completedDeliveriesCount = dashboardData.orders.filter(
+    order => order.status === 'Delivered',
+  ).length;
+
+  const statValueMap = {
+    "Today's Deliveries": todaysDeliveriesCount,
+    'Active Orders': activeOrdersCount,
+    'Pending Pickups': pendingPickupsCount,
+    'Completed Deliveries': completedDeliveriesCount,
+  };
+
   const IconMap = {
     Package,
     Shield,
@@ -421,7 +447,11 @@ export default function DashboardScreen({ navigation }) {
               key={item.id}
               icon={IconMap[item.icon]}
               title={item.title}
-              value={item.value}
+              value={
+                statValueMap[item.title] !== undefined
+                  ? statValueMap[item.title]
+                  : item.value
+              }
               unit={item.unit}
               trend={item.trend}
               trendUp={item.trendUp}
@@ -586,6 +616,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '400',
     lineHeight: 18,
+    marginBottom: 15,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -682,10 +713,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
-    //shadowOffset: { width: 0, height: 3 },
-    //shadowOpacity: 0.05,
-    //shadowRadius: 8,
-    //elevation: 2,
   },
   quickActionIconWrapper: {
     width: 40,
@@ -773,7 +800,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginLeft: 3,
   },
-  // --- Today's Progress card styles (replaces old activityRow styles) ---
   progressCard: {
     overflow: 'hidden',
     position: 'relative',

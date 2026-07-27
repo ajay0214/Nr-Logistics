@@ -8,6 +8,7 @@ import Delivery from './pages/Delivery';
 import Orders from './pages/Orders';
 import Pickup from './pages/Pickup';
 import Profile from './pages/Profile';
+import OrderDetails from './pages/OrderDetails';
 
 const Stack = createNativeStackNavigator();
 
@@ -28,6 +29,7 @@ const App = () => {
           <Stack.Screen name="Orders" component={Orders} />
 
           <Stack.Screen name="Pickup" component={Pickup} />
+          <Stack.Screen name="OrderDetails" component={OrderDetails} />
 
           <Stack.Screen name="Profile" component={Profile} />
         </Stack.Navigator>
