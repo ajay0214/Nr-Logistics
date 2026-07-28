@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import {
 const RADIUS = {
   card: 24,
   checkCircle: 22,
+  chip: 18,
 };
 
 const DELIVERED_ORDERS = [
@@ -196,8 +197,63 @@ function DeliveredOrderCard({ order }) {
   );
 }
 
+// Simple date filter chip row. Builds its chip list from the unique
+// "date" values present in the orders list, plus an "All" option.
+function DateFilterRow({ dates, selectedDate, onSelect }) {
+  const { colors, typography } = useTheme();
+
+  const chips = ['All', ...dates];
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.dateFilterRow}
+      style={styles.dateFilterScroll}
+    >
+      {chips.map(chip => {
+        const isActive =
+          chip === 'All' ? selectedDate === 'All' : selectedDate === chip;
+
+        return (
+          <TouchableOpacity
+            key={chip}
+            activeOpacity={0.8}
+            onPress={() => onSelect(chip)}
+            style={[
+              styles.dateChip,
+              {
+                backgroundColor: isActive ? colors.primary : colors.card,
+                borderColor: isActive ? colors.primary : colors.border,
+                shadowColor: colors.shadow,
+              },
+            ]}
+          >
+            <Calendar
+              size={12}
+              color={isActive ? colors.NavbarTextColour : colors.subText}
+            />
+            <Text
+              style={[
+                typography.label,
+                styles.dateChipText,
+                {
+                  color: isActive ? colors.NavbarTextColour : colors.text,
+                },
+              ]}
+            >
+              {chip}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 export default function DeliveredOrdersScreen({ navigation, route }) {
   const { colors, isDark, typography } = useTheme();
+  const [selectedDate, setSelectedDate] = useState('All');
 
   // Order comes from route.params.order — forwarded by the Pickup
   // (Order Details) screen when the user taps "Mark as Delivered".
@@ -218,6 +274,21 @@ export default function DeliveredOrdersScreen({ navigation, route }) {
 
     return [mapped, ...withoutDuplicate];
   }, [passedOrder]);
+
+  // Unique list of dates available across the current orders, used to
+  // populate the filter chips.
+  const availableDates = useMemo(() => {
+    const uniqueDates = [...new Set(orders.map(item => item.date))];
+    return uniqueDates;
+  }, [orders]);
+
+  // Orders filtered by the selected date chip. "All" shows everything.
+  const filteredOrders = useMemo(() => {
+    if (selectedDate === 'All') {
+      return orders;
+    }
+    return orders.filter(item => item.date === selectedDate);
+  }, [orders, selectedDate]);
 
   return (
     <SafeAreaView
@@ -245,12 +316,18 @@ export default function DeliveredOrdersScreen({ navigation, route }) {
         Orders successfully delivered.
       </Text>
 
+      <DateFilterRow
+        dates={availableDates}
+        selectedDate={selectedDate}
+        onSelect={setSelectedDate}
+      />
+
       <ScrollView
         style={styles.flex}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {orders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <View style={styles.emptyState}>
             <Inbox size={40} color={colors.subText} />
             <Text
@@ -264,7 +341,9 @@ export default function DeliveredOrdersScreen({ navigation, route }) {
             </Text>
           </View>
         ) : (
-          orders.map(item => <DeliveredOrderCard key={item.id} order={item} />)
+          filteredOrders.map(item => (
+            <DeliveredOrderCard key={item.id} order={item} />
+          ))
         )}
       </ScrollView>
 
@@ -305,6 +384,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginTop: 2,
     marginBottom: 16,
+  },
+  dateFilterScroll: {
+    flexGrow: 0,
+    marginBottom: 16,
+  },
+  dateFilterRow: {
+    paddingHorizontal: 24,
+  },
+  dateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: RADIUS.chip,
+    borderWidth: 1,
+    marginRight: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  dateChipText: {
+    marginLeft: 6,
   },
   scrollContent: {
     paddingHorizontal: 24,

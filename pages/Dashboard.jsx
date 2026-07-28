@@ -248,14 +248,6 @@ function DeliveryCard({
             {destination}
           </Text>
         </View>
-      </View>
-
-      <View style={styles.deliveryRight}>
-        <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
-          <Text style={[styles.statusText, { color: statusColor }]}>
-            {status}
-          </Text>
-        </View>
         <View style={styles.deliveryTimeRow}>
           <Clock size={11} color={colors.subText} />
           <Text style={[styles.deliveryTimeText, { color: colors.subText }]}>
@@ -263,6 +255,8 @@ function DeliveryCard({
           </Text>
         </View>
       </View>
+
+      <View style={styles.deliveryRight}></View>
 
       <ChevronRight size={18} color={colors.subText} />
     </TouchableOpacity>
@@ -373,9 +367,8 @@ export default function DashboardScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('Dashboard');
   const { colors, typography, isDark } = useTheme();
 
-  const todaysDeliveries = dashboardData.orders.filter(
-    order => order.status === 'In Transit' || order.status === 'Picked Up',
-  );
+  // Show first 4 orders from the full order list (not filtered by status)
+  const todaysDeliveries = dashboardData.orders.slice(0, 4);
 
   // ---- Live stat counts derived from data.json (instead of the static
   // "value" field), so the dashboard always reflects the actual orders
@@ -459,7 +452,7 @@ export default function DashboardScreen({ navigation }) {
           ))}
         </View>
 
-        <View style={styles.sectionHeaderRow}>
+        {/* <View style={styles.sectionHeaderRow}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             Quick Actions
           </Text>
@@ -471,9 +464,9 @@ export default function DashboardScreen({ navigation }) {
               <ChevronRight size={14} color={colors.primary} />
             </View>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
-        <View style={styles.quickActionsRow}>
+        {/* <View style={styles.quickActionsRow}>
           {dashboardData.quickActions.map(item => (
             <QuickActionCard
               key={item.id}
@@ -481,6 +474,23 @@ export default function DashboardScreen({ navigation }) {
               icon={IconMap[item.icon]}
             />
           ))}
+        </View> */}
+
+        <View style={styles.cardSectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Today's Deliveries
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('Orders')}
+          >
+            <View style={styles.viewAllRow}>
+              <Text style={[styles.viewAllText, { color: colors.primary }]}>
+                View All
+              </Text>
+              <ChevronRight size={14} color={colors.primary} />
+            </View>
+          </TouchableOpacity>
         </View>
 
         <View
@@ -489,20 +499,6 @@ export default function DashboardScreen({ navigation }) {
             { backgroundColor: colors.card, shadowColor: colors.shadow },
           ]}
         >
-          <View style={styles.cardSectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Today's Deliveries
-            </Text>
-            <TouchableOpacity activeOpacity={0.7}>
-              <View style={styles.viewAllRow}>
-                <Text style={[styles.viewAllText, { color: colors.primary }]}>
-                  View All
-                </Text>
-                <ChevronRight size={14} color={colors.primary} />
-              </View>
-            </TouchableOpacity>
-          </View>
-
           {todaysDeliveries.map(item => (
             <DeliveryCard
               key={item.id}
