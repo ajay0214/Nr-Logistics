@@ -24,6 +24,8 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../components/ThemeContext';
+import CustomBottomTab from './Custombottomtab';
+
 import {
   Camera,
   Sun,
@@ -50,9 +52,10 @@ const MENU_ITEMS = [
   { key: 'about', label: 'About', Icon: Info },
 ];
 
-const ProfileScreen = () => {
+const ProfileScreen = ({ navigation }) => {
   const { isDark, colors, typography, toggleTheme } = useTheme();
   const [notificationsOn, setNotificationsOn] = useState(true);
+  const [activeTab, setActiveTab] = useState('Profile');
 
   const styles = getStyles(colors, typography);
 
@@ -194,6 +197,30 @@ const ProfileScreen = () => {
           <View style={{ height: 24 }} />
         </View>
       </ScrollView>
+      <CustomBottomTab
+        activeTab="Profile"
+        onTabPress={tab => {
+          setActiveTab(tab);
+
+          switch (tab) {
+            case 'Dashboard':
+              navigation.navigate('Dashboard');
+              break;
+
+            case 'Orders':
+              navigation.navigate('Orders');
+              break;
+
+            case 'Delivery':
+              navigation.navigate('Delivery');
+              break;
+
+            case 'Profile':
+              navigation.navigate('Profile');
+              break;
+          }
+        }}
+      />
     </SafeAreaView>
   );
 };

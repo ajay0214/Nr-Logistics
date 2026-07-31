@@ -57,8 +57,9 @@ export default function LoginScreen({ navigation }) {
         backgroundColor={colors.background}
       />
       <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView
@@ -71,8 +72,8 @@ export default function LoginScreen({ navigation }) {
               <Image
                 source={
                   isDark
-                    ? require('../assets/Logistics-Dark.png')
-                    : require('../assets/logisticsgreen.png')
+                    ? require('../assets/logisticsLogo.png')
+                    : require('../assets/logisticsLogo.png')
                 }
                 style={styles.heroImage}
                 resizeMode="cover"
@@ -92,9 +93,6 @@ export default function LoginScreen({ navigation }) {
 
               <Text style={styles.welcomeText}>
                 Welcome <Text style={styles.welcomeTextGreen}>back!</Text>
-              </Text>
-              <Text style={styles.subtitleText}>
-                Sign in to manage your deliveries{'\n'}and shipments
               </Text>
 
               <Text style={styles.label}>Mobile Number</Text>
@@ -123,7 +121,7 @@ export default function LoginScreen({ navigation }) {
                   style={styles.inputField}
                   placeholder="Enter your password"
                   placeholderTextColor={colors.subText}
-                  secureTextEntry={!showPassword}
+                  //secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
                 />
@@ -264,8 +262,8 @@ const getStyles = (colors, typography) =>
       marginTop: -40,
     },
     logoImage: {
-      width: 200,
-      height: 38,
+      width: 300,
+      height: 48,
       marginRight: 8,
     },
     logoText: {
@@ -277,7 +275,7 @@ const getStyles = (colors, typography) =>
       color: colors.primary,
     },
     welcomeText: {
-      ...typography.h1,
+      ...typography.h2,
       color: colors.text,
       marginBottom: 6,
       textAlign: 'center',

@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import CustomHeader from '../components/CustomHeader';
 import CustomBottomTab from './Custombottomtab';
 import { useTheme } from '../components/ThemeContext';
+import CustomHeader from '../components/CustomHeader';
 
 import {
   Menu,
@@ -31,8 +32,17 @@ import {
   Grid,
   User,
   Plus,
+  Navigation,
 } from 'lucide-react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, {
+  Path,
+  Circle,
+  Rect,
+  Line,
+  Defs,
+  LinearGradient,
+  Stop,
+} from 'react-native-svg';
 import dashboardData from '../components/data.json';
 
 const RADIUS = {
@@ -40,8 +50,8 @@ const RADIUS = {
   button: 18,
 };
 
-// Converts a theme hex color (e.g. colors.primary) into an rgba() string
-// so it can be used for translucent glows/tracks that follow the theme.
+const PROGRESS_ACCENT = '#203778'; // Main Blue
+
 function hexToRgba(hex, alpha = 1) {
   if (!hex) return `rgba(16, 185, 129, ${alpha})`;
   let clean = hex.replace('#', '');
@@ -157,30 +167,6 @@ function DashboardCard({
   );
 }
 
-function QuickActionCard({ icon: Icon, label, onPress }) {
-  const { colors } = useTheme();
-
-  return (
-    <TouchableOpacity
-      style={[styles.quickActionCard]}
-      activeOpacity={0.8}
-      onPress={onPress}
-    >
-      <View
-        style={[
-          styles.quickActionIconWrapper,
-          { borderColor: colors.primary, backgroundColor: colors.primary },
-        ]}
-      >
-        <Icon size={20} color={colors.NavbarTextColour} />
-      </View>
-      <Text style={[styles.quickActionLabel, { color: colors.text }]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
 function DeliveryCard({
   orderId,
   pickup,
@@ -195,20 +181,20 @@ function DeliveryCard({
   const statusTheme =
     status === 'In Transit'
       ? {
-          line: '#3B82F6',
-          boxBg: '#dbeafee6',
-          icon: '#2563EB',
+          line: colors.statusInTransitText,
+          boxBg: colors.statusInTransitBg,
+          icon: colors.statusInTransitText,
         }
       : status === 'Picked Up'
       ? {
-          line: '#F59E0B',
-          boxBg: '#FEF3C7',
-          icon: '#D97706',
+          line: colors.statusPickedUpText,
+          boxBg: colors.statusPickedUpBg,
+          icon: colors.statusPickedUpText,
         }
       : {
-          line: '#22C55E',
-          boxBg: '#DCFCE7',
-          icon: '#16A34A',
+          line: colors.statusDeliveredText,
+          boxBg: colors.statusDeliveredBg,
+          icon: colors.NavbarTextColour,
         };
 
   return (
@@ -263,102 +249,398 @@ function DeliveryCard({
   );
 }
 
+// Decorative background art for the Today's Progress card, styled after
+// the "Good Morning" reference: a dotted grid, a faint city skyline, a
+// couple of floating accent dots, and a leaf sprig tucked in the corner.
+// Drawn in a single accent tone (green) at low opacity so it reads
+// cleanly on top of the light mint card background, instead of the
+// translucent-white treatment used on a dark surface.
+function ProgressBackgroundArt({ color = PROGRESS_ACCENT }) {
+  const dotGrid = [];
+  const gridCols = 5;
+  const gridRows = 3;
+  const gridStartX = 250;
+  const gridStartY = 10;
+  const gridGap = 14;
+  for (let row = 0; row < gridRows; row++) {
+    for (let col = 0; col < gridCols; col++) {
+      dotGrid.push([gridStartX + col * gridGap, gridStartY + row * gridGap]);
+    }
+  }
+
+  return (
+    <Svg
+      style={StyleSheet.absoluteFill}
+      viewBox="0 0 400 170"
+      preserveAspectRatio="xMidYMid slice"
+      pointerEvents="none"
+    >
+      {/* soft wide glow so the art doesn't look flat against the mint bg */}
+      <Circle cx="340" cy="70" r="120" fill={hexToRgba(color, 0.08)} />
+
+      {/* dotted grid, top-right corner */}
+      {dotGrid.map(([cx, cy], i) => (
+        <Circle
+          key={`dot-${i}`}
+          cx={cx}
+          cy={cy}
+          r={1.8}
+          fill={color}
+          opacity={0.3}
+        />
+      ))}
+
+      {/* faint city skyline silhouette along the bottom edge */}
+      <Path
+        d="M180,170 L180,128 L192,128 L192,112 L204,112 L204,128 L218,128
+           L218,100 L232,100 L232,128 L246,128 L246,140 L260,140 L260,108
+           L276,108 L276,140 L290,140 L290,120 L304,120 L304,140 L320,140
+           L320,92 L336,92 L336,140 L350,140 L350,132 L400,132 L400,170 Z"
+        fill={color}
+        opacity={0.09}
+      />
+      <Path
+        d="M198,170 L198,144 L210,144 L210,132 L224,132 L224,144 L240,144
+           L240,158 L256,158 L256,140 L270,140 L270,158 L286,158 L286,146
+           L300,146 L300,158 L400,158 L400,170 Z"
+        fill={color}
+        opacity={0.14}
+      />
+
+      {/* small floating accent dots */}
+      <Circle cx="382" cy="30" r="3.5" fill={color} opacity={0.32} />
+      <Circle cx="312" cy="104" r="3" fill={color} opacity={0.28} />
+
+      {/* leaf sprig accent, bottom-right corner */}
+      <Path
+        d="M378,150
+           C365,138 365,116 380,104
+           C395,116 395,138 378,150 Z"
+        fill={color}
+        opacity={0.16}
+      />
+      <Path
+        d="M378,150 L378,104"
+        stroke={color}
+        strokeWidth="1.1"
+        opacity={0.24}
+      />
+    </Svg>
+  );
+}
+
 // Replaces the old ActivityItem / Recent Activity list.
-// Dark navy card with a linear progress bar on the left and a
-// circular progress ring (with a truck icon) on the right.
+// Light mint card with decorative background art, a linear progress bar
+// on the left, and a circular progress ring (with a truck icon) on the
+// right.
 function TodaysProgressCard({ completed, total }) {
   const { colors } = useTheme();
-  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  // Use the app's existing green accent (colors.primary / colors.DarkGreenColor)
-  // instead of a hardcoded blue, so this card follows the theme like the
-  // rest of the dashboard.
-  const accentColor = colors.primary;
-  const accentDark = colors.DarkGreenColor || colors.primary;
+  const percent =
+    dashboardData.progress.total > 0
+      ? Math.round(
+          (dashboardData.progress.completed / dashboardData.progress.total) *
+            100,
+        )
+      : 0;
 
   return (
     <View
       style={[
         styles.card,
         styles.lastCard,
-        styles.progressCard,
-        { backgroundColor: accentDark, shadowColor: accentDark },
+        {
+          backgroundColor: colors.TodaysProgress,
+          shadowColor: colors.shadow,
+          overflow: 'hidden',
+          position: 'relative',
+        },
       ]}
     >
-      <View
-        style={[
-          styles.progressGlowOne,
-          { backgroundColor: hexToRgba(accentColor, 0.22) },
-        ]}
-        pointerEvents="none"
-      />
-      <View
-        style={[
-          styles.progressGlowTwo,
-          { backgroundColor: hexToRgba(accentColor, 0.12) },
-        ]}
-        pointerEvents="none"
-      />
+      <ProgressBackgroundArt color={PROGRESS_ACCENT} />
 
       <View style={styles.progressRow}>
+        {/* Left Content */}
         <View style={styles.progressLeft}>
-          <Text
-            style={[
-              styles.progressTitle,
-              { color: hexToRgba('#FFFFFF', 0.65) },
-            ]}
+          {/* Badge */}
+          <View
+            style={{
+              alignSelf: 'flex-start',
+              backgroundColor: hexToRgba(PROGRESS_ACCENT, 0.12),
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 20,
+              marginBottom: 14,
+            }}
           >
-            Today's Progress
-          </Text>
+            <Text
+              style={{
+                color: PROGRESS_ACCENT,
+                fontSize: 12,
+                fontWeight: '600',
+              }}
+            >
+              Today's Progress
+            </Text>
+          </View>
 
-          <View style={styles.progressPercentRow}>
-            <Text style={styles.progressPercentValue}>{percent}%</Text>
-            <Text style={[styles.progressPercentLabel, { color: '#FFFFFF' }]}>
-              {' '}
+          {/* Percentage */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              marginBottom: 14,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 34,
+                fontWeight: '800',
+                color: colors.text,
+              }}
+            >
+              {percent}%
+            </Text>
+
+            <Text
+              style={{
+                marginLeft: 8,
+                marginBottom: 6,
+                color: colors.subText,
+                fontSize: 13,
+              }}
+            >
               Completed
             </Text>
           </View>
 
+          {/* Progress Bar */}
           <View
-            style={[
-              styles.progressBarTrack,
-              { backgroundColor: hexToRgba('#FFFFFF', 0.15) },
-            ]}
+            style={{
+              height: 10,
+              borderRadius: 5,
+              overflow: 'hidden',
+              backgroundColor: hexToRgba(PROGRESS_ACCENT, 0.15),
+            }}
           >
             <View
-              style={[
-                styles.progressBarFill,
-                { width: `${percent}%`, backgroundColor: '#FFFFFF' },
-              ]}
+              style={{
+                width: `${percent}%`,
+                height: '100%',
+                borderRadius: 5,
+                backgroundColor: PROGRESS_ACCENT,
+              }}
             />
           </View>
 
+          {/* Footer */}
           <Text
-            style={[
-              styles.progressSubText,
-              { color: hexToRgba('#FFFFFF', 0.55) },
-            ]}
+            style={{
+              marginTop: 12,
+              color: colors.subText,
+              fontSize: 13,
+            }}
           >
-            {completed} of {total} deliveries completed
+            {dashboardData.progress.completed} of {dashboardData.progress.total}{' '}
+            deliveries completed
           </Text>
         </View>
 
-        <View style={styles.progressRingWrapper}>
+        {/* Right Progress Ring */}
+        <View
+          style={{
+            width: 90,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <ProgressRing
             percent={percent}
-            color={accentColor}
-            trackColor={hexToRgba('#FFFFFF', 0.15)}
+            size={74}
+            strokeWidth={7}
+            color={PROGRESS_ACCENT}
+            trackColor={hexToRgba(PROGRESS_ACCENT, 0.15)}
           />
+
           <View
-            style={[
-              styles.progressRingIconBox,
-              { backgroundColor: accentColor },
-            ]}
+            style={{
+              position: 'absolute',
+              width: 42,
+              height: 42,
+              borderRadius: 21,
+              backgroundColor: PROGRESS_ACCENT,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            <Truck size={20} color={colors.NavbarTextColour} />
+            <Truck size={20} color="#FFFFFF" />
           </View>
         </View>
       </View>
+    </View>
+  );
+}
+
+// Faint scattered dots behind the greeting text, evoking the world-map
+// texture from the reference "Good Morning" banner.
+function WorldDotsBackground({ color }) {
+  const dots = [
+    [30, 20],
+    [58, 14],
+    [86, 28],
+    [114, 16],
+    [142, 32],
+    [170, 18],
+    [42, 52],
+    [72, 58],
+    [102, 48],
+    [132, 62],
+    [162, 52],
+    [192, 44],
+    [22, 86],
+    [52, 92],
+    [88, 82],
+    [118, 98],
+    [152, 88],
+    [182, 98],
+    [36, 126],
+    [66, 122],
+    [96, 132],
+    [126, 118],
+    [156, 128],
+    [186, 116],
+  ];
+
+  return (
+    <Svg
+      style={StyleSheet.absoluteFill}
+      viewBox="0 0 400 220"
+      preserveAspectRatio="xMidYMid slice"
+      pointerEvents="none"
+    >
+      {dots.map(([cx, cy], i) => (
+        <Circle key={i} cx={cx} cy={cy} r={2} fill={color} opacity={0.22} />
+      ))}
+    </Svg>
+  );
+}
+
+// Full navy hero banner styled after the reference screenshot: the status
+// bar area + header row (back icon, "NR LOGISTICS" logo mark, notification
+// bell, profile icon) live inside the same dark navy surface as the
+// greeting copy and avatar, with one continuous bottom curve carrying it
+// into the page content beneath.
+function GreetingCard({ navigation }) {
+  const { colors, typography } = useTheme();
+
+  return (
+    <View style={styles.greetingWrapper}>
+      <View
+        style={[
+          styles.greetingCard,
+          { backgroundColor: colors.primary, shadowColor: colors.primary },
+        ]}
+      >
+        <WorldDotsBackground color={colors.NavbarTextColour} />
+
+        <MapPin
+          size={16}
+          color={hexToRgba(colors.NavbarTextColour, 0.25)}
+          style={styles.greetingPinOne}
+        />
+        <MapPin
+          size={13}
+          color={hexToRgba(colors.NavbarTextColour, 0.2)}
+          style={styles.greetingPinTwo}
+        />
+
+        <CustomHeader
+          showLogo
+          logoLeft
+          leftIcon={null}
+          rightIcons={['bell']}
+          backgroundColor={colors.primary}
+          transparentIcons={['bell']}
+          iconColor={{
+            bell: '#FFFFFF',
+          }}
+        />
+
+        <View style={styles.greetingContentRow}>
+          <View style={styles.greetingTextBlock}>
+            <Text
+              style={[
+                typography.subtitle,
+                styles.greetingGreetingText,
+                { color: hexToRgba(colors.NavbarTextColour, 0.9) },
+              ]}
+            >
+              {dashboardData.user.greeting} 👋
+            </Text>
+
+            <Text
+              style={[
+                typography.h,
+                styles.greetingWelcomeText,
+                { color: colors.NavbarTextColour },
+              ]}
+            >
+              Welcome,{' '}
+              <Text style={{ color: colors.secondary }}>
+                {dashboardData.user.name}!
+              </Text>
+            </Text>
+
+            <Text
+              style={[
+                typography.caption,
+                styles.greetingSubText,
+                { color: hexToRgba(colors.NavbarTextColour, 0.7) },
+              ]}
+            >
+              {dashboardData.user.welcomeSubtitle}
+            </Text>
+          </View>
+
+          <View style={styles.greetingAvatarWrapper}>
+            <View
+              style={[
+                styles.greetingRingOuter,
+                { borderColor: hexToRgba(colors.NavbarTextColour, 0.3) },
+              ]}
+            />
+            <View
+              style={[
+                styles.greetingAvatarCircle,
+                { borderColor: colors.NavbarTextColour },
+              ]}
+            >
+              <Image
+                source={{ uri: 'https://i.pravatar.cc/150?img=12' }}
+                style={styles.greetingAvatarImage}
+              />
+            </View>
+            <View
+              style={[
+                styles.greetingOnlineDot,
+                { backgroundColor: '#22C55E', borderColor: colors.primary },
+              ]}
+            />
+          </View>
+        </View>
+      </View>
+
+      <Svg
+        height={36}
+        width="100%"
+        viewBox="0 0 400 36"
+        style={styles.greetingCurve}
+      >
+        <Path
+          d="M0,0 C120,40 280,40 400,0 L400,36 L0,36 Z"
+          fill={colors.background}
+        />
+      </Svg>
     </View>
   );
 }
@@ -406,34 +688,26 @@ export default function DashboardScreen({ navigation }) {
     Maximize,
   };
   return (
-    <SafeAreaView
-      style={[styles.safeArea, { backgroundColor: colors.background }]}
-      edges={['top']}
-    >
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
+    <View style={[styles.screenRoot, { backgroundColor: colors.background }]}>
+      {/* Status-bar-height sliver painted navy so it reads as one
+          continuous surface with the greeting card immediately below it. */}
+      <SafeAreaView
+        edges={['top']}
+        style={{ backgroundColor: colors.primary }}
       />
-      <CustomHeader showLogo rightIcons={['bell', 'user']} leftIcon={null} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
       <ScrollView
         style={styles.flex}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.greetingText}>
-          {dashboardData.user.greeting} 👋
-        </Text>
+        <GreetingCard navigation={navigation} />
 
-        <Text style={styles.welcomeText}>
-          Welcome,
-          <Text style={{ color: colors.primary }}>
-            {' '}
-            {dashboardData.user.name}
-          </Text>
-        </Text>
-
-        <Text style={styles.subText}>{dashboardData.user.welcomeSubtitle}</Text>
+        <TodaysProgressCard
+          completed={dashboardData.progress.completed}
+          total={dashboardData.progress.total}
+        />
         <View style={styles.statsGrid}>
           {dashboardData.stats.map(item => (
             <DashboardCard
@@ -522,10 +796,6 @@ export default function DashboardScreen({ navigation }) {
         </View>
 
         {/* Today's Progress card (replaces Recent Activity) */}
-        <TodaysProgressCard
-          completed={dashboardData.progress.completed}
-          total={dashboardData.progress.total}
-        />
       </ScrollView>
 
       <CustomBottomTab
@@ -546,17 +816,20 @@ export default function DashboardScreen({ navigation }) {
               navigation.navigate('Delivery');
               break;
 
-            case 'Pickup':
-              navigation.navigate('Pickup');
+            case 'Profile':
+              navigation.navigate('Profile');
               break;
           }
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
   },
@@ -565,7 +838,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: 0,
     paddingBottom: 110,
   },
   headerRow: {
@@ -597,27 +870,170 @@ const styles = StyleSheet.create({
   greetingBlock: {
     marginBottom: 24,
   },
-  greetingText: {
-    fontSize: 14,
-    fontWeight: '400',
-    marginBottom: 4,
+  // Full-bleed wrapper: cancels the ScrollView's horizontal padding so the
+  // navy banner runs edge-to-edge like the reference screenshot, and holds
+  // the curved SVG that sits under the card's bottom edge.
+  greetingWrapper: {
+    marginHorizontal: -24,
+    marginBottom: -10,
+    position: 'relative',
   },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: '700',
+  greetingCard: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 40,
+    overflow: 'hidden',
+    position: 'relative',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 6,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 60,
+    height: 250,
+  },
+  greetingHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 26,
+  },
+  greetingHeaderLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  greetingHeaderLogoBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  greetingHeaderLogoText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  greetingHeaderIconsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  greetingHeaderIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  greetingHeaderIconButtonSpacing: {
+    marginLeft: 8,
+  },
+  greetingHeaderNotifDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+  },
+  greetingPinOne: {
+    position: 'absolute',
+    top: 78,
+    right: 92,
+  },
+  greetingPinTwo: {
+    position: 'absolute',
+    top: 148,
+    right: 132,
+  },
+  greetingContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  greetingTextBlock: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  greetingGreetingText: {
     marginBottom: 6,
   },
-  welcomeName: {},
-  subText: {
-    fontSize: 13,
-    fontWeight: '400',
-    lineHeight: 18,
-    marginBottom: 15,
+  greetingWelcomeText: {
+    marginBottom: 8,
+  },
+  greetingSubText: {
+    maxWidth: 220,
+  },
+  greetingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: RADIUS.button,
+    padding: 10,
+    marginTop: 6,
+  },
+  greetingChipIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  greetingChipTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  greetingChipSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  greetingAvatarWrapper: {
+    width: 72,
+    height: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  greetingAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+  },
+  greetingRingOuter: {
+    position: 'absolute',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 1.2,
+  },
+  greetingAvatarCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  greetingOnlineDot: {
+    position: 'absolute',
+    bottom: 3,
+    right: 3,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+  },
+  greetingCurve: {
+    marginTop: -1,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    marginTop: 20,
   },
   statCard: {
     width: '48%',

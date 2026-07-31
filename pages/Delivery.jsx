@@ -89,7 +89,7 @@ function DeliveredOrderCard({ order }) {
   const TILE_COLORS = buildTileColors(colors);
   const { orderId, pickup, destination, date, packages, tileColorKey } = order;
   const tile = TILE_COLORS[tileColorKey] || TILE_COLORS.blue;
-  const deliveredColor = colors.statusDeliveredText;
+  const deliveredColor = colors.NavbarTextColour;
   const deliveredBg = colors.statusDeliveredBg;
 
   return (
@@ -363,8 +363,8 @@ export default function DeliveredOrdersScreen({ navigation, route }) {
               navigation.navigate('Delivery');
               break;
 
-            case 'Pickup':
-              navigation.navigate('Pickup');
+            case 'Profile':
+              navigation.navigate('Profile');
               break;
           }
         }}

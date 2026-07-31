@@ -12,6 +12,10 @@ import {
   ShoppingBag,
   Truck,
   Package,
+  User,
+  UserRound,
+  CircleUser,
+  UserCircle,
 } from 'lucide-react-native';
 import { useTheme, Fonts } from '../components/ThemeContext';
 
@@ -20,11 +24,11 @@ import { useTheme, Fonts } from '../components/ThemeContext';
 /* `key` must match the activeTab values used by the parent screen.    */
 /* ------------------------------------------------------------------ */
 const TABS = [
-  { key: 'Dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { key: 'Dashboard', label: 'Overview', Icon: LayoutDashboard },
   { key: 'Orders', label: 'Orders', Icon: ShoppingBag },
 
-  { key: 'Pickup', label: 'Pickup', Icon: Package },
   { key: 'Delivery', label: 'Delivery', Icon: Truck },
+  { key: 'Profile', label: 'Profile', Icon: UserRound },
 ];
 
 const ICON_SIZE = 20;
@@ -34,6 +38,11 @@ const BAR_HEIGHT = 90;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TAB_WIDTH = SCREEN_WIDTH / TABS.length;
 
+// Horizontal inset of the sliding pill within each tab's slot.
+const PILL_H_PADDING = 10;
+const PILL_WIDTH = TAB_WIDTH - PILL_H_PADDING * 2;
+const PILL_HEIGHT = 58;
+
 /** Formats the cart count for the badge — anything over 99 becomes "99+". */
 const formatBadgeCount = count => (count > 99 ? '99+' : String(count));
 
@@ -41,9 +50,10 @@ const formatBadgeCount = count => (count > 99 ? '99+' : String(count));
  * CustomBottomTab
  *
  * Custom bottom navigation bar themed to match the dashboard screen —
- * white bar, green accent, and a floating bubble that slides and pops
- * behind whichever tab is active. Pure React Native + Animated API,
- * no SVG, no Reanimated, no third-party UI libraries.
+ * dark navy bar with a sliding rounded-rect pill that highlights
+ * whichever tab is active (icon + label together inside the pill).
+ * Pure React Native + Animated API, no SVG, no Reanimated, no
+ * third-party UI libraries.
  *
  * Colors and typography are pulled live from ThemeContext (useTheme),
  * so the bar automatically re-themes when light/dark mode changes.
@@ -61,41 +71,37 @@ const CustomBottomTab = ({ activeTab, onTabPress, cartCount = 0 }) => {
     return idx === -1 ? 0 : idx;
   }, [activeTab]);
 
-  // Drives the bubble's horizontal position — a single Animated.Value
+  // Drives the pill's horizontal position — a single Animated.Value
   // moving between 0 and TABS.length - 1.
   const position = useRef(new Animated.Value(activeIndex)).current;
 
-  // Drives the little "pop" scale of the bubble + active icon whenever
-  // the active tab changes.
-  const bubbleScale = useRef(new Animated.Value(1)).current;
+  // Drives the little "pop" scale of the pill whenever the active tab
+  // changes.
+  const pillScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.spring(position, {
       toValue: activeIndex,
       useNativeDriver: true,
-      friction: 7,
+      friction: 8,
       tension: 70,
     }).start();
 
     // Quick pop: shrink then spring back up past 1 for a bubbly feel.
-    bubbleScale.setValue(0.7);
-    Animated.spring(bubbleScale, {
+    pillScale.setValue(0.85);
+    Animated.spring(pillScale, {
       toValue: 1,
       useNativeDriver: true,
       friction: 5,
       tension: 120,
     }).start();
-  }, [activeIndex, position, bubbleScale]);
+  }, [activeIndex, position, pillScale]);
 
-  // Horizontal position of the bubble, centered under each tab.
-  const bubbleTranslateX = position.interpolate({
+  // Horizontal position of the pill, centered under each tab.
+  const pillTranslateX = position.interpolate({
     inputRange: TABS.map((_, i) => i),
-    outputRange: TABS.map(
-      (_, i) => i * TAB_WIDTH + TAB_WIDTH / 2 - BUBBLE_SIZE / 2,
-    ),
+    outputRange: TABS.map((_, i) => i * TAB_WIDTH + PILL_H_PADDING),
   });
-
-  const ActiveIcon = TABS[activeIndex].Icon;
 
   return (
     <View
@@ -107,61 +113,26 @@ const CustomBottomTab = ({ activeTab, onTabPress, cartCount = 0 }) => {
         },
       ]}
     >
-      {/* Animated floating bubble — sits behind the active tab and
-          slides across as activeTab changes. */}
+      {/* Animated pill — slides behind whichever tab is active,
+          wrapping its icon + label together. */}
       <Animated.View
         style={[
-          styles.bubble,
+          styles.pill,
           {
             backgroundColor: colors.primary,
             shadowColor: colors.DarkGreenColor,
-            transform: [
-              { translateX: bubbleTranslateX },
-              { scale: bubbleScale },
-            ],
+            transform: [{ translateX: pillTranslateX }, { scale: pillScale }],
           },
         ]}
-      >
-        <ActiveIcon
-          size={ICON_SIZE + 2}
-          color={colors.NavbarTextColour}
-          strokeWidth={2.2}
-        />
+      />
 
-        {/* Cart badge on the bubble when Orders is the active tab */}
-        {activeTab === 'Orders' && cartCount > 0 && (
-          <View
-            style={[
-              styles.badge,
-              {
-                backgroundColor: colors.statusPickedUpText,
-                borderColor: colors.bottomTabBg,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                typography.small,
-                styles.badgeText,
-                { color: colors.NavbarTextColour },
-              ]}
-            >
-              {formatBadgeCount(cartCount)}
-            </Text>
-          </View>
-        )}
-      </Animated.View>
-
-      {/* Static row of tab buttons */}
+      {/* Static row of tab buttons, rendered above the pill */}
       <View style={styles.tabRow}>
         {TABS.map(tab => {
           const isActive = tab.key === activeTab;
           const { Icon } = tab;
 
-          // Badge on the static icon only when Orders is NOT active
-          // (the active version already shows its own badge on the bubble).
-          const showStaticBadge =
-            tab.key === 'Orders' && cartCount > 0 && !isActive;
+          const showBadge = tab.key === 'Orders' && cartCount > 0;
 
           return (
             <TouchableOpacity
@@ -170,19 +141,18 @@ const CustomBottomTab = ({ activeTab, onTabPress, cartCount = 0 }) => {
               activeOpacity={0.7}
               onPress={() => onTabPress(tab.key)}
             >
-              {/* Reserve the same vertical space whether or not the icon
-                  is visible here, so the label doesn't jump when the
-                  bubble covers the active icon. */}
               <View style={styles.iconSlot}>
-                {!isActive && (
-                  <Icon
-                    size={ICON_SIZE}
-                    color={colors.bottomTabInactiveText}
-                    strokeWidth={2}
-                  />
-                )}
+                <Icon
+                  size={ICON_SIZE}
+                  color={
+                    isActive
+                      ? colors.NavbarTextColour
+                      : colors.bottomTabInactiveText
+                  }
+                  strokeWidth={2}
+                />
 
-                {showStaticBadge && (
+                {showBadge && (
                   <View
                     style={[
                       styles.badge,
@@ -210,10 +180,7 @@ const CustomBottomTab = ({ activeTab, onTabPress, cartCount = 0 }) => {
                   typography.small,
                   styles.label,
                   isActive
-                    ? [
-                        styles.labelActive,
-                        { color: colors.bottomTabActiveText },
-                      ]
+                    ? [styles.labelActive, { color: colors.NavbarTextColour }]
                     : [
                         styles.labelInactive,
                         { color: colors.bottomTabInactiveText },
@@ -252,10 +219,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
+    zIndex: 2,
   },
   iconSlot: {
     width: BUBBLE_SIZE,
-    height: BUBBLE_SIZE - 12,
+    height: BUBBLE_SIZE - 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
@@ -269,19 +237,17 @@ const styles = StyleSheet.create({
   labelInactive: {
     fontWeight: '500',
   },
-  bubble: {
+  pill: {
     position: 'absolute',
-    top: -20, // floats above the bar, "bubble" effect
-    width: BUBBLE_SIZE,
-    height: BUBBLE_SIZE,
-    borderRadius: BUBBLE_SIZE / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
-    zIndex: 10,
+    top: 12,
+    width: PILL_WIDTH,
+    height: PILL_HEIGHT,
+    borderRadius: 18,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 1,
   },
   badge: {
     position: 'absolute',

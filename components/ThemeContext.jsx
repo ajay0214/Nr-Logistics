@@ -13,6 +13,7 @@ export const Fonts = {
   headingSemiBold: 'Poppins-SemiBold',
   headingBold: 'Poppins-Bold',
   headingExtraBold: 'Poppins-ExtraBold',
+  headingBlack: 'Poppins-Black',
 
   // Inter → Body
   bodyRegular: 'Inter-Regular',
@@ -23,6 +24,15 @@ export const Fonts = {
 
 export const typography = {
   // Screen Title (Top level)
+
+  h: {
+    fontFamily: Fonts.headingBlack,
+
+    fontSize: 28,
+    lineHeight: 36,
+    letterSpacing: 0.3,
+    fontWeight: 700,
+  },
   h1: {
     fontFamily: Fonts.headingExtraBold,
     fontSize: 26,
@@ -168,10 +178,10 @@ export const Radius = {
 };
 
 // ---------------- Light & Dark Themes ----------------
-// Palette lifted from the LogiMove screens: emerald/teal brand green,
+// Palette lifted from the LogiMove screens: navy brand blue,
 // navy headline text, soft blue-gray page background, with blue /
-// orange / green used for delivery status states (In Transit /
-// Picked Up / Delivered).
+// orange / navy used for delivery status states (In Transit /
+// Picked Up / Delivered). All former green tones replaced with #203778.
 export const ThemeLight = {
   Mode: 'Light',
   Background: '#F7F8FA', // page background behind cards
@@ -179,50 +189,50 @@ export const ThemeLight = {
   SectionBackground: '#F2F4F5', // grouped list / section backgrounds
   Border: '#E5E7EB',
   InputBackground: '#F9FAFB', // mobile number / password fields
-  SpecialButtonBackground: '#ECFDF5',
+  SpecialButtonBackground: '#203778',
   TextPrimary: '#0F172A', // "Welcome back!" navy-black
   TextSecondary: 'rgba(15,23,42,0.55)', // subtitles, helper copy
   TextDisabled: 'rgba(15,23,42,0.35)', // placeholder text
-  TextAccent: '#10B981', // "back!", "Move", links
-  loader: '#10B981',
+  TextAccent: '#203778', // "back!", "Move", links
+  loader: '#203778',
   IconColor: '#0F172A',
-  ChipBG: '#F0FDF9',
+  ChipBG: '#203778',
 
   // Brand
-  BrandPrimary: '#10B981', // LogiMove emerald green
+  BrandPrimary: '#203778', // LogiMove brand blue
   BrandSecondary: '#0F2A3D', // deep navy accent
 
   // Gradients (use with react-native-linear-gradient)
-  GradientPrimary: ['#10B981', '#0EA5E9'], // Login button gradient
-  GradientHeader: ['#E9FBF3', '#EAF6FF'], // hero header wash
+  GradientPrimary: ['#203778', '#0EA5E9'], // Login button gradient
+  GradientHeader: ['#203778', '#EAF6FF'], // hero header wash
 
-  UploadBoxBackground: '#ECFDF5',
+  UploadBoxBackground: '#203778',
   UploadBoxTextcolor: '#0F172A',
   ShareBtnBackground: '#DBEAFE',
-  UploadGigBg: '#E6F9EF',
-  GigTextColor: '#10B981',
+  UploadGigBg: '#203778',
+  GigTextColor: '#203778',
 
-  ButtonPrimaryBG: '#10B981', // Login / primary CTA
+  ButtonPrimaryBG: '#203778', // Login / primary CTA
   ButtonPrimaryText: '#FFFFFF',
   ButtonSecondaryBG: '#0F2A3D',
   ButtonTertiaryBG: '#2853AF',
   ButtonSecondaryText: '#FFFFFF',
   ButtonGhostIcon: '#6B7280',
 
-  SecondaryContainer: '#D1FAE5',
-  Success: '#059669', // Delivered, positive trend
+  SecondaryContainer: '#203778',
+  Success: '#203778', // Delivered, positive trend
   Warning: '#F59E0B', // Pending Pickups, Picked Up
   Error: '#EF4444',
   Iconsplcolor: '#3B82F6', // In Transit blue accents
-  VerifiedBG: '#D1FAE5',
+  VerifiedBG: '#203778',
   StandardColor: '#FFFFFF',
-  ChartColor: '#10B981', // sparkline stroke color
+  ChartColor: '#203778', // sparkline stroke color
 
-  NavbarbgColour: '#10B981',
+  NavbarbgColour: '#203778',
   NavbarTextColour: '#FFFFFF',
   TitleBarbgColour: '#F2F4F5',
   TitleBarTextColour: '#0F2A3D',
-  pricingButtonColor: '#EAF7F1',
+  pricingButtonColor: '#203778',
   HighlightBG: '#DBEAFE', // In Transit badge bg
   HighlightAltBG: '#FEF3C7', // Picked Up / pending badge bg
 
@@ -231,19 +241,20 @@ export const ThemeLight = {
   StatusInTransitText: '#3B82F6',
   StatusPickedUpBG: '#FEF3C7',
   StatusPickedUpText: '#F59E0B',
-  StatusDeliveredBG: '#D1FAE5',
-  StatusDeliveredText: '#059669',
+  StatusDeliveredBG: '#203778',
+  StatusDeliveredText: '#203778',
+  StatusDeliveredNewBG: '#4970dc',
 
   // Trend pills on stat cards
-  TrendUpBG: '#D1FAE5',
-  TrendUpText: '#059669',
+  TrendUpBG: '#203778',
+  TrendUpText: '#203778',
   TrendDownBG: '#FEF3C7',
   TrendDownText: '#F59E0B',
 
   // Bottom tab bar
   BottomTabBG: '#FFFFFF',
-  BottomTabActiveBG: '#D1FAE5',
-  BottomTabActiveText: '#059669',
+  BottomTabActiveBG: '#203778',
+  BottomTabActiveText: '#203778',
   BottomTabInactiveText: '#6B7280',
 
   // Logo: require("../assets/logimove-logo.png"),
@@ -260,48 +271,48 @@ export const ThemeDark = {
   SectionBackground: '#10161',
   Border: '#25302C',
   InputBackground: '#1B2320',
-  SpecialButtonBackground: '#132A22',
+  SpecialButtonBackground: '#203778',
   TextPrimary: '#F5F5F5',
   TextSecondary: 'rgba(245,245,245,0.6)',
   TextDisabled: 'rgba(245,245,245,0.35)',
-  TextAccent: '#34D399',
-  loader: '#34D399',
+  TextAccent: '#203778',
+  loader: '#203778',
   IconColor: '#F5F5F5',
-  ChipBG: '#182420',
+  ChipBG: '#203778',
 
-  BrandPrimary: '#34D399',
+  BrandPrimary: '#203778',
   BrandSecondary: '#67C1E8',
 
-  GradientPrimary: ['#059669', '#0284C7'],
-  GradientHeader: ['#0F1E1A', '#0E1B24'],
+  GradientPrimary: ['#203778', '#0284C7'],
+  GradientHeader: ['#203778', '#0E1B24'],
 
-  UploadBoxBackground: '#132A22',
+  UploadBoxBackground: '#203778',
   UploadBoxTextcolor: '#F5F5F5',
   ShareBtnBackground: '#123049',
-  UploadGigBg: '#132A22',
-  GigTextColor: '#34D399',
+  UploadGigBg: '#203778',
+  GigTextColor: '#203778',
 
-  ButtonPrimaryBG: '#059669',
+  ButtonPrimaryBG: '#203778',
   ButtonPrimaryText: '#F5F5F5',
   ButtonSecondaryBG: '#123049',
   ButtonTertiaryBG: '#2853AF',
   ButtonSecondaryText: '#FFFFFF',
   ButtonGhostIcon: '#9CA3AF',
 
-  SecondaryContainer: '#123B2E',
-  Success: '#34D399',
+  SecondaryContainer: '#203778',
+  Success: '#203778',
   Warning: '#FBBF24',
   Error: '#F87171',
   Iconsplcolor: '#60A5FA',
-  VerifiedBG: '#123B2E',
+  VerifiedBG: '#203778',
   StandardColor: '#FFFFFF',
-  ChartColor: '#34D399',
+  ChartColor: '#203778',
 
-  NavbarbgColour: '#0F2A22',
+  NavbarbgColour: '#203778',
   NavbarTextColour: '#FFFFFF',
   TitleBarbgColour: '#151B19',
-  TitleBarTextColour: '#34D399',
-  pricingButtonColor: '#123B2E',
+  TitleBarTextColour: '#203778',
+  pricingButtonColor: '#203778',
   HighlightBG: '#123049',
   HighlightAltBG: '#3D2E20',
 
@@ -309,17 +320,17 @@ export const ThemeDark = {
   StatusInTransitText: '#60A5FA',
   StatusPickedUpBG: '#3D2E20',
   StatusPickedUpText: '#FBBF24',
-  StatusDeliveredBG: '#123B2E',
-  StatusDeliveredText: '#34D399',
+  StatusDeliveredBG: '#203778',
+  StatusDeliveredText: '#203778',
 
-  TrendUpBG: '#123B2E',
-  TrendUpText: '#34D399',
+  TrendUpBG: '#203778',
+  TrendUpText: '#203778',
   TrendDownBG: '#3D2E20',
   TrendDownText: '#FBBF24',
 
   BottomTabBG: '#151B19',
-  BottomTabActiveBG: '#123B2E',
-  BottomTabActiveText: '#34D399',
+  BottomTabActiveBG: '#203778',
+  BottomTabActiveText: '#203778',
   BottomTabInactiveText: '#9CA3AF',
 
   // Logo: require("../assets/logimove-logo-dark.png"),
@@ -376,7 +387,9 @@ export const ThemeProvider = ({ children }) => {
 
     Icon: isDark ? '#F5F5F5' : '#0F172A',
     EditIcon: isDark ? '#D1D5DB' : '#0F2A3D',
-    EditIconBack: isDark ? 'rgba(52, 211, 153, 0.15)' : 'rgba(16,185,129,0.10)',
+    EditIconBack: isDark
+      ? 'rgba(32, 55, 120, 0.15)'
+      : 'rgba(32, 55, 120, 0.10)',
 
     DeleteIcon: isDark ? '#f87171b5' : '#E53E3E',
     DeleteIconBack: isDark
@@ -399,15 +412,15 @@ export const ThemeProvider = ({ children }) => {
     shadow: '#000000',
 
     // Brand
-    DarkGreenColor: '#059669',
-    Main: isDark ? '#34D399' : '#10B981',
-    primary: isDark ? '#34D399' : '#10B981',
+    DarkGreenColor: '#203778',
+    Main: '#203778',
+    primary: '#203778',
     secondary: isDark ? '#67C1E8' : '#0EA5E9',
 
     // Login-button style gradients (pair with react-native-linear-gradient)
-    gradientPrimary: isDark ? ['#059669', '#0284C7'] : ['#10B981', '#0EA5E9'],
+    gradientPrimary: isDark ? ['#203778', '#0284C7'] : ['#203778', '#0EA5E9'],
 
-    NavbarbgColour: isDark ? '#0F2A22' : '#10B981',
+    NavbarbgColour: '#203778',
     NavbarTextColour: '#FFFFFF',
 
     // Delivery status colors (badges, activity dots)
@@ -415,25 +428,28 @@ export const ThemeProvider = ({ children }) => {
     statusInTransitText: isDark ? '#60A5FA' : '#3B82F6',
     statusPickedUpBg: isDark ? '#3D2E20' : '#FEF3C7',
     statusPickedUpText: isDark ? '#FBBF24' : '#F59E0B',
-    statusDeliveredBg: isDark ? '#123B2E' : '#D1FAE5',
-    statusDeliveredText: isDark ? '#34D399' : '#059669',
+    statusDeliveredBg: '#203778',
+    statusDeliveredText: '#203778',
+    StatusDeliveredNewBG: '#90a1d14f',
+
+    TodaysProgress: isDark ? '#979ba014' : '#F4F7FD',
 
     // Stat-card trend pills
-    trendUpBg: isDark ? '#123B2E' : '#D1FAE5',
-    trendUpText: isDark ? '#34D399' : '#059669',
+    trendUpBg: '#203778',
+    trendUpText: '#203778',
     trendDownBg: isDark ? '#3D2E20' : '#FEF3C7',
     trendDownText: isDark ? '#FBBF24' : '#F59E0B',
 
     // Bottom tab bar (active pill look from the dashboard screenshot)
     bottomTabBg: isDark ? '#151B19' : '#FFFFFF',
-    bottomTabActiveBg: isDark ? '#123B2E' : '#D1FAE5',
-    bottomTabActiveText: isDark ? '#34D399' : '#059669',
+    bottomTabActiveBg: '#203778',
+    bottomTabActiveText: '#203778',
     bottomTabInactiveText: isDark ? '#9CA3AF' : '#6B7280',
 
     modalOverlay: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)',
     modalCard: isDark ? '#151B19' : '#FFFFFF',
     modalBorder: isDark ? '#25302C' : '#E5E7EB',
-    modalItemActive: isDark ? '#123B2E' : '#ECFDF5',
+    modalItemActive: isDark ? '#203778' : '#203778',
   };
 
   // Optional: Prevent flicker before loading

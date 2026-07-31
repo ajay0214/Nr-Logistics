@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,233 +6,422 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
+  Modal,
+  TextInput,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomHeader from '../components/CustomHeader';
 import CustomBottomTab from './Custombottomtab';
-import { useTheme } from '../components/ThemeContext';
+import { useTheme, typography } from '../components/ThemeContext';
 import dashboardData from '../components/data.json';
 
 import {
   MapPin,
   Calendar,
   Package,
-  Truck,
-  PackageCheck,
-  PackageX,
+  Weight,
   Inbox,
   Check,
-  Flame,
-  AlertCircle,
-  ArrowDownCircle,
-  CheckCircle2,
-  XCircle,
+  Filter as FilterIcon,
+  Navigation,
+  X,
+  ShieldCheck,
 } from 'lucide-react-native';
 
 const RADIUS = {
   card: 24,
   button: 18,
-  pill: 20,
+  tab: 14,
+  sheet: 24,
 };
 
-const buildStatusConfig = colors => ({
-  'In Transit': {
-    icon: Truck,
-    color: colors.statusInTransitText,
-    bg: colors.statusInTransitBg,
-  },
-  'Picked Up': {
-    icon: Package,
-    color: colors.statusPickedUpText,
-    bg: colors.statusPickedUpBg,
-  },
-  Delivered: {
-    icon: PackageCheck,
-    color: colors.statusDeliveredText,
-    bg: colors.statusDeliveredBg,
-  },
-  Cancelled: {
-    icon: PackageX,
-    color: colors.DeleteIcon,
-    bg: colors.DeleteIconBack,
-  },
-});
+/* Status badge palettes — derived from ThemeContext colors at render time
+   (instead of a static hardcoded palette) so they follow light/dark mode. */
+const PICKUP_FILTERS = ['All', 'Picked Up', 'Cancelled'];
+const DELIVERY_FILTERS = ['All', 'Assigned'];
 
-// Priority config — icon + color + bg based on priority value
-const buildPriorityConfig = () => ({
-  High: {
-    icon: Flame,
-    color: '#E53935',
-    bg: '#FDECEA',
-  },
-  Medium: {
-    icon: AlertCircle,
-    color: '#FB8C00',
-    bg: '#FFF3E0',
-  },
-  Low: {
-    icon: ArrowDownCircle,
-    color: '#43A047',
-    bg: '#E8F5E9',
-  },
-  Completed: {
-    icon: CheckCircle2,
-    color: '#1E88E5',
-    bg: '#E3F2FD',
-  },
-  Cancelled: {
-    icon: XCircle,
-    color: '#757575',
-    bg: '#EEEEEE',
-  },
-});
+function getPickupStatusColors(status, colors) {
+  switch (status) {
+    case 'Picked Up':
+      return { color: colors.statusPickedUpText, bg: colors.statusPickedUpBg };
+    case 'Cancelled':
+      return { color: colors.DeleteIcon, bg: colors.DeleteIconBack };
+    default:
+      return { color: colors.subText, bg: colors.border };
+  }
+}
 
-function OrderCard({ order, selected, onToggle }) {
+function getDeliveryStatusColors(status, colors) {
+  switch (status) {
+    case 'Assigned':
+      return {
+        color: colors.statusPickedUpText,
+        bg: colors.statusPickedUpBg,
+      };
+    default:
+      return {
+        color: colors.subText,
+        bg: colors.border,
+      };
+  }
+}
+/* Derive display status purely from existing data fields (deliveryIn) —
+   no new source-of-truth fields required. */
+function getPickupStatus(order) {
+  return order.deliveryIn === 'Cancelled' ? 'Cancelled' : 'Picked Up';
+}
+
+function getDeliveryStatus(order) {
+  return 'Assigned';
+}
+
+function formatTodayLabel() {
+  const d = new Date();
+  const day = d.getDate();
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  return `Today, ${day} ${month}`;
+}
+
+/* ---------------------------------------------------
+   PICKUP CARD
+--------------------------------------------------- */
+function PickupCard({ order, onNavigate, onViewDetails }) {
   const { colors } = useTheme();
-  const STATUS_CONFIG = buildStatusConfig(colors);
-  const PRIORITY_CONFIG = buildPriorityConfig();
-  const { orderId, pickup, destination, date, packages, status, priority } =
-    order;
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG['In Transit'];
-  const Icon = config.icon;
-
-  const priorityConfig = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG['Medium'];
-  const PriorityIcon = priorityConfig.icon;
+  const status = getPickupStatus(order);
+  const statusConfig = getPickupStatusColors(status, colors);
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={() => onToggle(order)}
+    <View
       style={[
         styles.orderCard,
-        {
-          backgroundColor: colors.card,
-          shadowColor: colors.shadow,
-          borderColor: selected ? colors.primary : 'transparent',
-        },
+        { backgroundColor: colors.card, shadowColor: colors.shadow },
       ]}
     >
-      <View style={styles.orderTopRow}>
-        <View style={[styles.orderIconBox, { backgroundColor: config.bg }]}>
-          <Icon size={20} color={config.color} />
+      <View style={styles.cardHeaderRow}>
+        <View>
+          <Text style={[styles.awbLabel, { color: colors.subText }]}>
+            AWB No.
+          </Text>
+          <Text style={[styles.orderId, { color: colors.primary }]}>
+            {order.orderId}
+          </Text>
         </View>
-
-        <View style={styles.routeCol}>
-          <View style={{ flex: 1 }}>
-            <View style={styles.orderIdRow}>
-              <Text style={[styles.orderId, { color: colors.text }]}>
-                {orderId}
-              </Text>
-
-              <View
-                style={[
-                  styles.priorityBadge,
-                  { backgroundColor: priorityConfig.bg },
-                ]}
-              >
-                <PriorityIcon size={12} color={priorityConfig.color} />
-                <Text
-                  style={[styles.priorityText, { color: priorityConfig.color }]}
-                >
-                  {priority}
-                </Text>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'column', marginLeft: 140 }}>
-              <View style={styles.routeRow}>
-                <View
-                  style={[styles.routeDot, { backgroundColor: colors.primary }]}
-                />
-                <Text
-                  style={[styles.routeText, { color: colors.text }]}
-                  numberOfLines={1}
-                >
-                  {pickup.city}
-                </Text>
-              </View>
-
-              <View style={styles.routeRow}>
-                <MapPin size={12} color={colors.subText} />
-                <Text
-                  style={[
-                    styles.routeText,
-                    { color: colors.subText, marginLeft: 6 },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {destination.city}
-                </Text>
-              </View>
-            </View>
-          </View>
+        <View
+          style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}
+        >
+          <Text style={[styles.statusBadgeText, { color: statusConfig.color }]}>
+            {status}
+          </Text>
         </View>
+      </View>
+
+      <Text style={[styles.customerName, { color: colors.text }]}>
+        {order.customerName}
+      </Text>
+
+      <View style={styles.routeRow}>
+        <MapPin size={13} color={colors.primary} />
+        <Text
+          style={[styles.routeText, { color: colors.subText, marginLeft: 6 }]}
+          numberOfLines={1}
+        >
+          {order.pickup.city}
+        </Text>
+      </View>
+
+      <View style={styles.metaRow}>
+        <View style={styles.orderFooterItem}>
+          <Package size={13} color={colors.subText} />
+          <Text style={[styles.orderFooterText, { color: colors.subText }]}>
+            {order.packages} {order.packages > 1 ? 'Parcels' : 'Parcel'}
+          </Text>
+        </View>
+        <View style={styles.orderFooterItem}>
+          <Weight size={13} color={colors.subText} />
+          <Text style={[styles.orderFooterText, { color: colors.subText }]}>
+            {order.weight.toFixed(1)} Kg
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.windowRow}>
+        <Calendar size={13} color={colors.subText} />
+        <Text style={[styles.windowText, { color: colors.subText }]}>
+          Pickup: {order.date}, {order.pickupWindow}
+        </Text>
       </View>
 
       <View style={[styles.orderFooterRow, { borderTopColor: colors.border }]}>
-        <View style={styles.orderFooterLeft}>
-          <View style={styles.orderFooterItem}>
-            <Calendar size={13} color={colors.subText} />
-            <Text style={[styles.orderFooterText, { color: colors.subText }]}>
-              {date}
-            </Text>
-          </View>
-          <View style={styles.orderFooterItem}>
-            <Package size={13} color={colors.subText} />
-            <Text style={[styles.orderFooterText, { color: colors.subText }]}>
-              {packages} {packages > 1 ? 'Packages' : 'Package'}
-            </Text>
-          </View>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => onViewDetails(order)}
+          style={[
+            styles.outlineButton,
+            { borderColor: colors.border, backgroundColor: colors.card },
+          ]}
+        >
+          <Text style={[styles.outlineButtonText, { color: colors.text }]}>
+            View Details
+          </Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => onToggle(order)}
-            style={[
-              styles.pickButton,
-              {
-                backgroundColor: selected
-                  ? colors.success || '#1FAA59'
-                  : colors.primary,
-              },
-            ]}
-          >
-            {selected ? (
-              <>
-                <Check size={13} color="#FFFFFF" />
-                <Text style={styles.pickButtonText}>Picked</Text>
-              </>
-            ) : (
-              <Text style={styles.pickButtonText}>Pick</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => onNavigate(order)}
+          style={[styles.pickButton, { backgroundColor: colors.primary }]}
+        >
+          <Navigation size={14} color={colors.NavbarTextColour} />
+          <Text style={styles.pickButtonText}>Navigate</Text>
+        </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
+/* ---------------------------------------------------
+   DELIVERY CARD
+--------------------------------------------------- */
+function DeliveryCard({
+  order,
+  deliveredOverrideIds,
+  onNavigate,
+  onDeliverPress,
+}) {
+  const { colors } = useTheme();
+  const status = getDeliveryStatus(order, deliveredOverrideIds);
+  const statusConfig = getDeliveryStatusColors(status, colors);
+  const isCod = order.paymentMethod === 'Cash on Delivery';
+  const isFinal = false;
+  return (
+    <View
+      style={[
+        styles.orderCard,
+        { backgroundColor: colors.card, shadowColor: colors.shadow },
+      ]}
+    >
+      <View style={styles.cardHeaderRow}>
+        <View>
+          <Text style={[styles.awbLabel, { color: colors.subText }]}>
+            AWB No.
+          </Text>
+          <Text style={[styles.orderId, { color: colors.primary }]}>
+            {order.orderId}
+          </Text>
+        </View>
+        <View
+          style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}
+        >
+          <Text style={[styles.statusBadgeText, { color: statusConfig.color }]}>
+            {status}
+          </Text>
+        </View>
+      </View>
+
+      <Text style={[styles.customerName, { color: colors.text }]}>
+        {order.customerName}
+      </Text>
+
+      <View style={styles.routeRow}>
+        <MapPin size={13} color={colors.primary} />
+        <Text
+          style={[styles.routeText, { color: colors.subText, marginLeft: 6 }]}
+          numberOfLines={1}
+        >
+          {order.destination.city}
+        </Text>
+      </View>
+
+      <View style={styles.metaRow}>
+        <View style={styles.orderFooterItem}>
+          <Package size={13} color={colors.subText} />
+          <Text style={[styles.orderFooterText, { color: colors.subText }]}>
+            {order.packages} {order.packages > 1 ? 'Parcels' : 'Parcel'}
+          </Text>
+        </View>
+        <View style={styles.orderFooterItem}>
+          <Weight size={13} color={colors.subText} />
+          <Text style={[styles.orderFooterText, { color: colors.subText }]}>
+            {order.weight.toFixed(1)} Kg
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.pillRow}>
+        <View
+          style={[
+            styles.smallPill,
+            { backgroundColor: isCod ? '#FFF3E0' : '#F1E9FB' },
+          ]}
+        >
+          <Text
+            style={[
+              styles.smallPillText,
+              { color: isCod ? '#B26A00' : '#6A3EB5' },
+            ]}
+          >
+            {isCod ? `COD: \u20B9${order.codAmount}` : 'Prepaid'}
+          </Text>
+        </View>
+
+        {!isFinal && (
+          <View
+            style={[styles.smallPill, { backgroundColor: colors.EditIconBack }]}
+          >
+            <ShieldCheck size={11} color={colors.primary} />
+            <Text
+              style={[
+                styles.smallPillText,
+                { color: colors.primary, marginLeft: 4 },
+              ]}
+            >
+              OTP Required
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.windowRow}>
+        <Calendar size={13} color={colors.subText} />
+        <Text style={[styles.windowText, { color: colors.subText }]}>
+          Delivery: {order.date}, {order.deliveryWindow}
+        </Text>
+      </View>
+
+      <View style={[styles.orderFooterRow, { borderTopColor: colors.border }]}>
+        {isFinal ? (
+          <View
+            style={[
+              styles.pickButton,
+              { backgroundColor: colors.border, flex: 1 },
+            ]}
+          >
+            <Text style={[styles.pickButtonText, { color: colors.subText }]}>
+              {status}
+            </Text>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => onDeliverPress(order)}
+              style={[styles.pickButton, { backgroundColor: colors.primary }]}
+            >
+              <Check size={14} color={colors.NavbarTextColour} />
+              <Text style={styles.pickButtonText}>Deliver</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => onNavigate(order)}
+              style={[
+                styles.outlineButton,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                  marginLeft: 20,
+                },
+              ]}
+            >
+              <Navigation size={14} color={colors.text} />
+              <Text style={[styles.outlineButtonText, { color: colors.text }]}>
+                Navigate
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+/* ---------------------------------------------------
+   MAIN SCREEN
+--------------------------------------------------- */
 export default function OrdersScreen({ navigation }) {
   const { colors, isDark } = useTheme();
-  const [selectedIds, setSelectedIds] = useState([]);
+
+  const [mainTab, setMainTab] = useState('Pickups'); // 'Pickups' | 'Deliveries'
+
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('All');
+
+  const [deliveredOverrideIds, setDeliveredOverrideIds] = useState([]);
+
+  const [otpVisible, setOtpVisible] = useState(false);
+  const [otpOrder, setOtpOrder] = useState(null);
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '']);
+  const [otpError, setOtpError] = useState('');
+  const otpRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
 
   const orders = useMemo(() => dashboardData.orders, []);
 
-  const handleToggle = order => {
-    setSelectedIds(prev =>
-      prev.includes(order.id)
-        ? prev.filter(id => id !== order.id)
-        : [...prev, order.id],
-    );
+  const handleMainTabPress = tab => {
+    setMainTab(tab);
+    setActiveFilter('All');
   };
 
-  const handlePickSelected = () => {
-    const pickedOrders = orders.filter(order => selectedIds.includes(order.id));
+  const filterOptions =
+    mainTab === 'Pickups' ? PICKUP_FILTERS : DELIVERY_FILTERS;
 
-    navigation.navigate('Pickup', {
-      orders: pickedOrders,
-    });
+  const filteredOrders = useMemo(() => {
+    if (activeFilter === 'All') return orders;
+    return orders.filter(order =>
+      mainTab === 'Pickups'
+        ? getPickupStatus(order) === activeFilter
+        : getDeliveryStatus(order, deliveredOverrideIds) === activeFilter,
+    );
+  }, [orders, mainTab, activeFilter, deliveredOverrideIds]);
 
-    setSelectedIds([]);
+  const handleNavigate = order => {
+    // Hook this up to your real map/navigation flow when ready.
+    navigation.navigate?.('Navigate', { order });
+  };
+
+  const handleViewDetails = order => {
+    navigation.navigate?.('OrderDetails', { order });
+  };
+
+  const openOtpModal = order => {
+    setOtpOrder(order);
+    setOtpDigits(['', '', '', '']);
+    setOtpError('');
+    setOtpVisible(true);
+  };
+
+  const closeOtpModal = () => {
+    setOtpVisible(false);
+    setOtpOrder(null);
+    setOtpDigits(['', '', '', '']);
+    setOtpError('');
+  };
+
+  const handleOtpChange = (text, index) => {
+    const digit = text.replace(/[^0-9]/g, '').slice(-1);
+    const next = [...otpDigits];
+    next[index] = digit;
+    setOtpDigits(next);
+    setOtpError('');
+
+    if (digit && index < 3) {
+      otpRefs[index + 1].current?.focus();
+    }
+  };
+
+  const handleOtpKeyPress = (e, index) => {
+    if (e.nativeEvent.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      otpRefs[index - 1].current?.focus();
+    }
+  };
+
+  const handleOtpConfirm = () => {
+    const code = otpDigits.join('');
+    if (code.length !== 4) {
+      setOtpError('Enter the complete 4-digit OTP');
+      return;
+    }
+    setDeliveredOverrideIds(prev => [...prev, otpOrder.id]);
+    closeOtpModal();
   };
 
   return (
@@ -250,49 +439,88 @@ export default function OrdersScreen({ navigation }) {
         Orders confirmed from website.
       </Text>
 
+      {/* Top tab bar: Pickups / Deliveries */}
+      <View style={styles.mainTabRow}>
+        {['Pickups', 'Deliveries'].map(tab => {
+          const active = mainTab === tab;
+          return (
+            <TouchableOpacity
+              key={tab}
+              activeOpacity={0.85}
+              onPress={() => handleMainTabPress(tab)}
+              style={[
+                styles.mainTabButton,
+                {
+                  backgroundColor: active ? colors.primary : colors.card,
+                  borderColor: active ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.mainTabText,
+                  { color: active ? colors.NavbarTextColour : colors.subText },
+                ]}
+              >
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Secondary tab row (visual, matches reference layout) */}
+
+      {/* Date + Filter row */}
+      <View style={styles.dateFilterRow}>
+        <Text style={[styles.dateText, { color: colors.text }]}>
+          {formatTodayLabel()}
+        </Text>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.filterButton}
+          onPress={() => setFilterVisible(true)}
+        >
+          <FilterIcon size={14} color={colors.primary} />
+          <Text style={[styles.filterText, { color: colors.primary }]}>
+            Filter{activeFilter !== 'All' ? `: ${activeFilter}` : ''}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.flex}
-        contentContainerStyle={[
-          styles.scrollContent,
-          selectedIds.length > 0 && { paddingBottom: 170 },
-        ]}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {orders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <View style={styles.emptyState}>
             <Inbox size={40} color={colors.subText} />
             <Text style={[styles.emptyText, { color: colors.subText }]}>
               No orders yet
             </Text>
           </View>
+        ) : mainTab === 'Pickups' ? (
+          filteredOrders.map(order => (
+            <PickupCard
+              key={order.id}
+              order={order}
+              onNavigate={handleNavigate}
+              onViewDetails={handleViewDetails}
+            />
+          ))
         ) : (
-          orders.map(item => (
-            <OrderCard
-              key={item.id}
-              order={item}
-              selected={selectedIds.includes(item.id)}
-              onToggle={handleToggle}
+          filteredOrders.map(order => (
+            <DeliveryCard
+              key={order.id}
+              order={order}
+              deliveredOverrideIds={deliveredOverrideIds}
+              onNavigate={handleNavigate}
+              onDeliverPress={openOtpModal}
             />
           ))
         )}
       </ScrollView>
-
-      {selectedIds.length > 0 ? (
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={handlePickSelected}
-          style={[
-            styles.pickBar,
-            { backgroundColor: colors.success || '#1FAA59' },
-          ]}
-        >
-          <Package size={18} color="#FFFFFF" />
-          <Text style={styles.pickBarText}>
-            Pick {selectedIds.length}{' '}
-            {selectedIds.length > 1 ? 'Orders' : 'Order'}
-          </Text>
-        </TouchableOpacity>
-      ) : null}
 
       <CustomBottomTab
         activeTab="Orders"
@@ -310,117 +538,268 @@ export default function OrdersScreen({ navigation }) {
               navigation.navigate('Delivery');
               break;
 
-            case 'Pickup':
-              navigation.navigate('Pickup');
+            case 'Profile':
+              navigation.navigate('Profile');
               break;
           }
         }}
       />
+
+      {/* ---------------- FILTER MODAL ---------------- */}
+      <Modal visible={filterVisible} transparent animationType="fade">
+        <Pressable
+          style={[
+            styles.modalBackdrop,
+            { backgroundColor: colors.modalOverlay },
+          ]}
+          onPress={() => setFilterVisible(false)}
+        >
+          <Pressable
+            style={[styles.filterSheet, { backgroundColor: colors.modalCard }]}
+            onPress={() => {}}
+          >
+            <View style={styles.sheetHeaderRow}>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>
+                Filter by status
+              </Text>
+              <TouchableOpacity onPress={() => setFilterVisible(false)}>
+                <X size={20} color={colors.subText} />
+              </TouchableOpacity>
+            </View>
+
+            {filterOptions.map(option => {
+              const active = activeFilter === option;
+              return (
+                <TouchableOpacity
+                  key={option}
+                  activeOpacity={0.8}
+                  style={[
+                    styles.filterOptionRow,
+                    active && { backgroundColor: colors.EditIconBack },
+                  ]}
+                  onPress={() => {
+                    setActiveFilter(option);
+                    setFilterVisible(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      { color: active ? colors.primary : colors.text },
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                  {active && <Check size={16} color={colors.primary} />}
+                </TouchableOpacity>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ---------------- OTP MODAL ---------------- */}
+      <Modal visible={otpVisible} transparent animationType="fade">
+        <Pressable
+          style={[
+            styles.modalBackdrop,
+            { backgroundColor: colors.modalOverlay },
+          ]}
+          onPress={closeOtpModal}
+        >
+          <Pressable
+            style={[styles.otpCard, { backgroundColor: colors.modalCard }]}
+            onPress={() => {}}
+          >
+            <View style={styles.sheetHeaderRow}>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>
+                Enter Delivery OTP
+              </Text>
+              <TouchableOpacity onPress={closeOtpModal}>
+                <X size={20} color={colors.subText} />
+              </TouchableOpacity>
+            </View>
+
+            {otpOrder && (
+              <Text style={[styles.otpSubtitle, { color: colors.subText }]}>
+                {otpOrder.orderId} · {otpOrder.customerName}
+              </Text>
+            )}
+
+            <View style={styles.otpBoxRow}>
+              {otpDigits.map((digit, index) => (
+                <TextInput
+                  key={index}
+                  ref={otpRefs[index]}
+                  value={digit}
+                  onChangeText={text => handleOtpChange(text, index)}
+                  onKeyPress={e => handleOtpKeyPress(e, index)}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  style={[
+                    styles.otpBox,
+                    {
+                      borderColor: digit ? colors.primary : colors.border,
+                      color: colors.text,
+                      backgroundColor: colors.background,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+
+            {!!otpError && (
+              <Text style={[styles.otpErrorText, { color: colors.DeleteIcon }]}>
+                {otpError}
+              </Text>
+            )}
+
+            <View style={styles.otpButtonRow}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={closeOtpModal}
+                style={[
+                  styles.outlineButton,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                ]}
+              >
+                <Text
+                  style={[styles.outlineButtonText, { color: colors.text }]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleOtpConfirm}
+                style={[styles.pickButton, { backgroundColor: colors.primary }]}
+              >
+                <Check size={14} color={colors.NavbarTextColour} />
+                <Text style={styles.pickButtonText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  flex: {
-    flex: 1,
-  },
+  safeArea: { flex: 1 },
+  flex: { flex: 1 },
   screenSubtitle: {
-    fontSize: 13,
+    ...typography.bodySubText,
     fontWeight: '500',
     paddingHorizontal: 24,
     marginTop: 2,
-    marginBottom: 16,
+    marginBottom: 12,
   },
+
+  /* Main tabs */
+  mainTabRow: {
+    flexDirection: 'row',
+    marginHorizontal: 24,
+    marginBottom: 10,
+    borderRadius: RADIUS.tab,
+  },
+  mainTabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    marginHorizontal: 3,
+    borderRadius: RADIUS.tab,
+  },
+  mainTabText: { ...typography.bodyBold, fontWeight: '700' },
+
+  /* Sub tabs */
+  subTabRow: {
+    flexDirection: 'row',
+    marginHorizontal: 24,
+    marginBottom: 14,
+  },
+  subTabButton: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    marginHorizontal: 3,
+    borderRadius: 14,
+  },
+  subTabText: { ...typography.label, fontWeight: '600' },
+
+  /* Date + Filter */
+  dateFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    marginBottom: 10,
+  },
+  dateText: { ...typography.bodyBold, fontWeight: '700' },
+  filterButton: { flexDirection: 'row', alignItems: 'center' },
+  filterText: { ...typography.bodySubText, fontWeight: '700', marginLeft: 4 },
+
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 4,
     paddingBottom: 110,
   },
+
   orderCard: {
     borderRadius: RADIUS.card,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 2,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 3,
   },
-  orderTopRow: {
+  cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-  },
-  orderIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  routeCol: {
-    flex: 1,
-    flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  orderIdRow: {
+  awbLabel: { ...typography.label, fontWeight: '600', marginBottom: 2 },
+  orderId: { ...typography.h3, fontWeight: '800' },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  statusBadgeText: { ...typography.label, fontWeight: '700' },
+
+  customerName: { ...typography.bodyBold, fontWeight: '700', marginTop: 10 },
+
+  routeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  routeText: { ...typography.bodySubText, fontWeight: '500', flexShrink: 1 },
+
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  orderFooterItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
+    marginRight: 14,
   },
-  orderId: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  priorityBadge: {
+  orderFooterText: { ...typography.small, marginLeft: 5 },
+
+  pillRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  smallPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: 10,
-    marginRight: 30,
+    marginRight: 8,
   },
-  priorityText: {
-    fontSize: 10,
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-  routeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  routeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  routeText: {
-    fontSize: 13,
-    fontWeight: '500',
-    flexShrink: 1,
-  },
-  pickButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: RADIUS.button,
-    marginLeft: 40,
-    marginTop: 2,
-  },
-  pickButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginLeft: 4,
-  },
+  smallPillText: { ...typography.small, fontWeight: '700' },
+
+  windowRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  windowText: { ...typography.label, fontWeight: '500', marginLeft: 6 },
+
   orderFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -429,47 +808,91 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
   },
-  orderFooterLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  orderFooterItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  orderFooterText: {
-    fontSize: 11,
-    marginLeft: 5,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 80,
-  },
-  emptyText: {
-    fontSize: 13,
-    marginTop: 10,
-  },
-  pickBar: {
-    position: 'absolute',
-    left: 24,
-    right: 24,
-    bottom: 100,
-    height: 54,
-    borderRadius: RADIUS.pill,
+  outlineButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 6,
+    paddingVertical: 10,
+    borderRadius: RADIUS.button,
+    borderWidth: 1.5,
+    marginRight: 10,
   },
-  pickBarText: {
-    fontSize: 15,
+  outlineButtonText: { ...typography.label, fontWeight: '700', marginLeft: 4 },
+  pickButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: RADIUS.button,
+  },
+  pickButtonText: {
+    ...typography.label,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginLeft: 8,
+    marginLeft: 4,
   },
+
+  emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 80 },
+  emptyText: { ...typography.bodySubText, marginTop: 10 },
+
+  /* Modals */
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  filterSheet: {
+    borderTopLeftRadius: RADIUS.sheet,
+    borderTopRightRadius: RADIUS.sheet,
+    padding: 20,
+    paddingBottom: 30,
+  },
+  sheetHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  sheetTitle: { ...typography.h3, fontWeight: '800' },
+  filterOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  filterOptionText: { ...typography.bodyBold, fontWeight: '600' },
+
+  otpCard: {
+    marginHorizontal: 24,
+    marginBottom: 'auto',
+    marginTop: 'auto',
+    alignSelf: 'center',
+    width: '85%',
+    borderRadius: RADIUS.sheet,
+    padding: 22,
+  },
+  otpSubtitle: { ...typography.label, fontWeight: '500', marginBottom: 18 },
+  otpBoxRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  otpBox: {
+    ...typography.h2,
+    width: 54,
+    height: 58,
+    borderRadius: 14,
+    borderWidth: 2,
+    textAlign: 'center',
+    fontWeight: '800',
+  },
+  otpErrorText: {
+    ...typography.label,
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  otpButtonRow: { flexDirection: 'row', marginTop: 20 },
 });

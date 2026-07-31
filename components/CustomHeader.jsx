@@ -98,6 +98,10 @@ const CustomHeader = ({
   logo = DEFAULT_LOGO, // optional override for the logo image source
   leftIcon = 'back', // 'back' | 'menu'
   rightIcons = [], // e.g. ['bell', 'user']  or  ['share']  or  []
+  backgroundColor,
+  transparentIcons = [],
+  iconColor = {},
+  logoLeft = false,
 }) => {
   const navigation = useNavigation();
   const { colors, typography, isDark } = useTheme();
@@ -114,7 +118,9 @@ const CustomHeader = ({
         key={key}
         style={[
           styles.iconBox,
-          { backgroundColor: config.bg },
+          transparentIcons.includes(key)
+            ? { backgroundColor: 'transparent' }
+            : { backgroundColor: config.bg },
           side === 'right' && { marginLeft: 8 },
         ]}
         onPress={config.action}
@@ -122,7 +128,7 @@ const CustomHeader = ({
       >
         <LucideIcon
           size={side === 'left' ? 22 : 20}
-          color={config.color}
+          color={iconColor[key] || config.color}
           strokeWidth={2}
         />
         {config.badge ? (
@@ -144,42 +150,41 @@ const CustomHeader = ({
     <>
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
+        backgroundColor={backgroundColor || colors.background}
       />
       <View
         style={[
           styles.container,
           styles.shadow,
-          { backgroundColor: colors.background, shadowColor: colors.shadow },
+          {
+            backgroundColor: backgroundColor || colors.background,
+            shadowColor: colors.shadow,
+          },
         ]}
       >
         {/* LEFT */}
         <View style={styles.sideLeft}>
-          {' '}
-          {leftIcon ? renderIcon(leftIcon, 'left') : null}
+          {logoLeft ? (
+            <Image source={logo} style={styles.logo} resizeMode="contain" />
+          ) : leftIcon ? (
+            renderIcon(leftIcon, 'left')
+          ) : null}
         </View>
 
-        {/* CENTER — logo image when showLogo is true, otherwise the title text */}
         <View style={styles.center}>
-          {showLogo ? (
-            <Image
-              source={logo}
-              style={styles.logo}
-              resizeMode="contain"
-              accessibilityRole="image"
-              accessibilityLabel={title || 'App logo'}
-            />
-          ) : (
-            <Text
-              style={[typography.h3, styles.title, { color: colors.text }]}
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-          )}
+          {!logoLeft &&
+            (showLogo ? (
+              <Image source={logo} style={styles.logo} resizeMode="contain" />
+            ) : (
+              <Text
+                style={[typography.h3, styles.title, { color: colors.text }]}
+                numberOfLines={1}
+              >
+                {title}
+              </Text>
+            ))}
         </View>
 
-        {/* RIGHT */}
         <View style={styles.sideRight}>
           {rightIcons.map(key => renderIcon(key, 'right'))}
         </View>
@@ -195,12 +200,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
 
-    paddingTop: Platform.OS === 'ios' ? 0 : 4,
+    paddingTop: Platform.OS === 'ios' ? 0 : 0,
   },
 
   sideLeft: {
-    width: 44,
-    alignItems: 'flex-start',
+    width: 130,
     justifyContent: 'center',
   },
   sideRight: {

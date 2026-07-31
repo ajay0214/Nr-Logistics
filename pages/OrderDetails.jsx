@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomHeader from '../components/CustomHeader';
 import { useTheme } from '../components/ThemeContext';
-import CustomBottomTab from './Custombottomtab';
+//import CustomBottomTab from './Custombottomtab';
 
 import {
   Package,
@@ -303,7 +303,28 @@ function RouteCard({ order }) {
   );
 }
 
-function InfoRow({ label, value, valueColor, isLast }) {
+// Small green "Call" pill shown next to the Contact Number value.
+// Tapping it triggers the same onPress passed in (handleContactCustomer),
+// same as the "Contact Customer" footer button — just a quicker shortcut.
+function CallBadge({ onPress, colors }) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={[
+        styles.callBadge,
+        {
+          backgroundColor: colors.DarkGreenColor || colors.primary || '#1FAA59',
+        },
+      ]}
+    >
+      <PhoneCall size={12} color="#FFFFFF" />
+      <Text style={styles.callBadgeText}>Call</Text>
+    </TouchableOpacity>
+  );
+}
+
+function InfoRow({ label, value, valueColor, isLast, onCallPress }) {
   const { colors, typography } = useTheme();
 
   return (
@@ -322,20 +343,27 @@ function InfoRow({ label, value, valueColor, isLast }) {
       >
         {label}
       </Text>
-      <Text
-        style={[
-          typography.bodyBold,
-          styles.infoValue,
-          { color: valueColor || colors.text },
-        ]}
-      >
-        {value}
-      </Text>
+
+      <View style={styles.infoValueRow}>
+        <Text
+          style={[
+            typography.bodyBold,
+            styles.infoValue,
+            { color: valueColor || colors.text },
+          ]}
+        >
+          {value}
+        </Text>
+
+        {onCallPress ? (
+          <CallBadge onPress={onCallPress} colors={colors} />
+        ) : null}
+      </View>
     </View>
   );
 }
 
-function OrderInfoCard({ order }) {
+function OrderInfoCard({ order, onCallPress }) {
   const { colors } = useTheme();
 
   return (
@@ -346,7 +374,11 @@ function OrderInfoCard({ order }) {
       ]}
     >
       <InfoRow label="Customer Name" value={order.customerName} />
-      <InfoRow label="Contact Number" value={order.contactNumber} />
+      <InfoRow
+        label="Contact Number"
+        value={order.contactNumber}
+        onCallPress={onCallPress}
+      />
       <InfoRow label="Payment Method" value={order.paymentMethod} />
       <InfoRow
         label="Order Total"
@@ -613,7 +645,7 @@ export default function PickupDetailsScreen({ navigation, route }) {
         <RouteCard order={order} />
 
         <SectionTitle>Order Information</SectionTitle>
-        <OrderInfoCard order={order} />
+        <OrderInfoCard order={order} onCallPress={handleContactCustomer} />
 
         <SectionTitle>Delivery Notes</SectionTitle>
         <DeliveryNotesCard notes={order.deliveryNotes} />
@@ -635,7 +667,13 @@ export default function PickupDetailsScreen({ navigation, route }) {
               { backgroundColor: colors.DarkGreenColor || colors.primary },
             ]}
           >
-            <Text style={[typography.button, styles.primaryButtonText]}>
+            <Text
+              style={[
+                typography.button,
+                styles.primaryButtonText,
+                { fontSize: 12 },
+              ]}
+            >
               Mark as Delivered
             </Text>
           </TouchableOpacity>
@@ -650,10 +688,10 @@ export default function PickupDetailsScreen({ navigation, route }) {
               style={[
                 typography.button,
                 styles.secondaryButtonText,
-                { color: colors.text },
+                { color: colors.text, fontSize: 12 },
               ]}
             >
-              Contact Customer
+              Contact
             </Text>
           </TouchableOpacity>
         </View>
@@ -669,7 +707,7 @@ export default function PickupDetailsScreen({ navigation, route }) {
         onVerify={handleVerifyOtp}
       />
 
-      <CustomBottomTab
+      {/* <CustomBottomTab
         activeTab="Pickup"
         onTabPress={tab => {
           switch (tab) {
@@ -690,7 +728,7 @@ export default function PickupDetailsScreen({ navigation, route }) {
               break;
           }
         }}
-      />
+      /> */}
     </SafeAreaView>
   );
 }
@@ -816,34 +854,57 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   infoLabel: {},
-  infoValue: {},
+  infoValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoValue: {
+    marginRight: 8,
+  },
+  callBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  callBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
   notesBox: {
     borderRadius: RADIUS.button,
     padding: 16,
     marginBottom: 24,
   },
   footerButtons: {
+    flexDirection: 'row',
     paddingHorizontal: 24,
     paddingTop: 0,
     paddingBottom: 18,
   },
   primaryButton: {
+    flex: 1,
     height: 52,
     borderRadius: RADIUS.button,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginRight: 10,
   },
   primaryButtonText: {
     color: '#FFFFFF',
   },
   secondaryButton: {
+    flex: 1,
     height: 52,
     borderRadius: RADIUS.button,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+    marginLeft: 10,
   },
   secondaryButtonText: {
     marginLeft: 8,
