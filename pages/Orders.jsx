@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,14 @@ import CustomHeader from '../components/CustomHeader';
 import CustomBottomTab from './Custombottomtab';
 import { useTheme, typography } from '../components/ThemeContext';
 import dashboardData from '../components/data.json';
+import CalendarDateFilter, {
+  parseOrderDate,
+  formatDateLabel,
+  isSameDate,
+} from './CalendarDateFilter';
+import CalendarRangeFilter from './CalendarRangeFilter';
+import FilterMenu from './FilterMenu';
+import { addConfirmedOrder } from './DeliveryConfirmationStore';
 
 import {
   MapPin,
@@ -23,10 +31,10 @@ import {
   Weight,
   Inbox,
   Check,
-  Filter as FilterIcon,
   Navigation,
   X,
   ShieldCheck,
+  Filter,
 } from 'lucide-react-native';
 
 const RADIUS = {
@@ -36,10 +44,8 @@ const RADIUS = {
   sheet: 24,
 };
 
-/* Status badge palettes — derived from ThemeContext colors at render time
-   (instead of a static hardcoded palette) so they follow light/dark mode. */
-const PICKUP_FILTERS = ['All', 'Picked Up', 'Cancelled'];
-const DELIVERY_FILTERS = ['All', 'Assigned'];
+// Top-level tabs — "Picked Up" sits between Pickups and Deliveries
+const MAIN_TABS = ['Pickups', 'Picked Up', 'Deliveries'];
 
 function getPickupStatusColors(status, colors) {
   switch (status) {
@@ -85,6 +91,8 @@ function formatTodayLabel() {
 
 /* ---------------------------------------------------
    PICKUP CARD
+   (No OTP button here anymore — pickup confirmation now
+   happens on the Order Details screen via "View Details".)
 --------------------------------------------------- */
 function PickupCard({ order, onNavigate, onViewDetails }) {
   const { colors } = useTheme();
@@ -105,13 +113,6 @@ function PickupCard({ order, onNavigate, onViewDetails }) {
           </Text>
           <Text style={[styles.orderId, { color: colors.primary }]}>
             {order.orderId}
-          </Text>
-        </View>
-        <View
-          style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}
-        >
-          <Text style={[styles.statusBadgeText, { color: statusConfig.color }]}>
-            {status}
           </Text>
         </View>
       </View>
@@ -338,15 +339,37 @@ function DeliveryCard({
 /* ---------------------------------------------------
    MAIN SCREEN
 --------------------------------------------------- */
-export default function OrdersScreen({ navigation }) {
+export default function OrdersScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
 
-  const [mainTab, setMainTab] = useState('Pickups'); // 'Pickups' | 'Deliveries'
+  const [mainTab, setMainTab] = useState('Pickups'); // 'Pickups' | 'Picked Up' | 'Deliveries'
 
-  const [filterVisible, setFilterVisible] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('All');
+  // Calendar-based date filter (replaces the old status filter modal).
+  // selectedDate === null means "All Dates". Shared across all 3 tabs —
+  // each tab keeps its own scoped order list, only the date narrows it.
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  // Date-range filter — alternative to the single-date filter above.
+  // fromDate/toDate === null means no range is active. filterType tracks
+  // which of the two filtering modes ("single" | "range" | null) is
+  // currently applied, so the filter label and filteredOrders logic know
+  // which one to use.
+  const [rangeVisible, setRangeVisible] = useState(false);
+  const [fromDate, setFromDate] = useState(null);
+  const [toDate, setToDate] = useState(null);
+  const [filterType, setFilterType] = useState(null); // 'single' | 'range' | null
+
+  // Popup shown when the Filter icon is tapped, letting the user choose
+  // between "Single Date" and "Date Range".
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
 
   const [deliveredOverrideIds, setDeliveredOverrideIds] = useState([]);
+
+  // Tracks orders that were confirmed picked-up (via OTP, done on the
+  // Order Details screen now). These orders move out of "Pickups" and
+  // into the "Picked Up" tab.
+  const [pickedUpIds, setPickedUpIds] = useState([]);
 
   const [otpVisible, setOtpVisible] = useState(false);
   const [otpOrder, setOtpOrder] = useState(null);
@@ -356,22 +379,99 @@ export default function OrdersScreen({ navigation }) {
 
   const orders = useMemo(() => dashboardData.orders, []);
 
+  // Pick up the result of the OTP confirmation done on the Order
+  // Details screen. That screen navigates back here with
+  // route.params.confirmedPickupOrder set — we store the id and jump
+  // the user to the "Picked Up" tab so they see it land there. Since
+  // the "Deliveries" tab already lists every non-delivered order (see
+  // scopedOrders below), the same order is immediately visible there
+  // too, with full Deliver/OTP functionality — no extra wiring needed.
+  useEffect(() => {
+    const confirmed = route?.params?.confirmedPickupOrder;
+    if (confirmed?.id != null) {
+      setPickedUpIds(prev =>
+        prev.includes(confirmed.id) ? prev : [...prev, confirmed.id],
+      );
+      setMainTab('Picked Up');
+      setSelectedDate(null);
+      setFromDate(null);
+      setToDate(null);
+      setFilterType(null);
+      navigation.setParams?.({ confirmedPickupOrder: undefined });
+    }
+  }, [route?.params?.confirmedPickupOrder]);
+
   const handleMainTabPress = tab => {
     setMainTab(tab);
-    setActiveFilter('All');
+    setSelectedDate(null);
+    setFromDate(null);
+    setToDate(null);
+    setFilterType(null);
   };
 
-  const filterOptions =
-    mainTab === 'Pickups' ? PICKUP_FILTERS : DELIVERY_FILTERS;
+  // Orders scoped to the current tab, BEFORE the date filter is applied.
+  // (Same grouping rules as before — only the filtering mechanism
+  // downstream changed from status to date, and now supports a range too.)
+  const scopedOrders = useMemo(() => {
+    if (mainTab === 'Pickups') {
+      // Orders still pending pickup (not yet confirmed via OTP)
+      return orders.filter(order => !pickedUpIds.includes(order.id));
+    }
 
+    if (mainTab === 'Picked Up') {
+      // Orders confirmed picked-up and not yet delivered
+      return orders.filter(
+        order =>
+          pickedUpIds.includes(order.id) &&
+          !deliveredOverrideIds.includes(order.id),
+      );
+    }
+
+    // Deliveries tab — every order that hasn't been delivered yet is
+    // visible here (this already includes orders picked up via OTP).
+    return orders.filter(order => !deliveredOverrideIds.includes(order.id));
+  }, [orders, mainTab, deliveredOverrideIds, pickedUpIds]);
+
+  // Dates that actually have orders in the current tab — used to show
+  // small dots on the calendar so the user knows where to look. Shared
+  // by both the single-date and range calendars.
+  const markedDates = useMemo(() => {
+    return scopedOrders
+      .map(order => parseOrderDate(order.date))
+      .filter(Boolean);
+  }, [scopedOrders]);
+
+  // Extended filtering logic: supports single date ("single"), a date
+  // range ("range"), or no filter at all (falls back to scopedOrders).
   const filteredOrders = useMemo(() => {
-    if (activeFilter === 'All') return orders;
-    return orders.filter(order =>
-      mainTab === 'Pickups'
-        ? getPickupStatus(order) === activeFilter
-        : getDeliveryStatus(order, deliveredOverrideIds) === activeFilter,
-    );
-  }, [orders, mainTab, activeFilter, deliveredOverrideIds]);
+    if (filterType === 'range' && fromDate && toDate) {
+      return scopedOrders.filter(order => {
+        const d = parseOrderDate(order.date);
+        if (!d) return false;
+        return d >= fromDate && d <= toDate; // inclusive on both ends
+      });
+    }
+
+    if (filterType === 'single' && selectedDate) {
+      return scopedOrders.filter(order =>
+        isSameDate(parseOrderDate(order.date), selectedDate),
+      );
+    }
+
+    return scopedOrders;
+  }, [scopedOrders, filterType, selectedDate, fromDate, toDate]);
+
+  // Label shown next to the Filter icon: "All Dates", a single date, or
+  // a "From - To" range.
+  const filterLabel = useMemo(() => {
+    if (filterType === 'range' && fromDate && toDate) {
+      return `${formatDateLabel(fromDate)} - ${formatDateLabel(toDate)}`;
+    }
+    if (filterType === 'single' && selectedDate) {
+      return formatDateLabel(selectedDate);
+    }
+    return 'All Dates';
+  }, [filterType, selectedDate, fromDate, toDate]);
 
   const handleNavigate = order => {
     // Hook this up to your real map/navigation flow when ready.
@@ -420,8 +520,60 @@ export default function OrdersScreen({ navigation }) {
       setOtpError('Enter the complete 4-digit OTP');
       return;
     }
-    setDeliveredOverrideIds(prev => [...prev, otpOrder.id]);
+
+    const confirmedOrder = otpOrder;
+    setDeliveredOverrideIds(prev => [...prev, confirmedOrder.id]);
     closeOtpModal();
+
+    // Push into the shared confirmed-orders store so it shows up on the
+    // Delivered Orders screen right away.
+    addConfirmedOrder({ ...confirmedOrder, status: 'Delivered' });
+
+    // Send the just-delivered order over to the Delivery screen so it
+    // shows up in that list right away (same hand-off pattern already
+    // used by the pickup-OTP flow when it navigates back to Orders).
+    navigation.navigate('Delivery', { order: confirmedOrder });
+  };
+
+  // --- Filter menu / calendar orchestration --------------------------
+  const openFilterMenu = () => setFilterMenuVisible(true);
+  const closeFilterMenu = () => setFilterMenuVisible(false);
+
+  const handleChooseSingleDate = () => {
+    setFilterMenuVisible(false);
+    setCalendarVisible(true);
+  };
+
+  const handleChooseDateRange = () => {
+    setFilterMenuVisible(false);
+    setRangeVisible(true);
+  };
+
+  // Wraps the existing CalendarDateFilter's onSelectDate so picking a
+  // single date also marks filterType as "single" and clears any active
+  // range, and picking "Show All Dates" (date === null) clears the
+  // filter entirely. The calendar component itself is untouched.
+  const handleSingleDateSelected = date => {
+    setSelectedDate(date);
+    setFromDate(null);
+    setToDate(null);
+    setFilterType(date ? 'single' : null);
+  };
+
+  const handleApplyRange = (from, to) => {
+    setFromDate(from);
+    setToDate(to);
+    setSelectedDate(null);
+    setFilterType(from && to ? 'range' : null);
+    setRangeVisible(false);
+  };
+
+  const handleResetRangeFilter = () => {
+    setFromDate(null);
+    setToDate(null);
+    setSelectedDate(null);
+    setFilterType(null);
+    setRangeVisible(false);
   };
 
   return (
@@ -431,17 +583,17 @@ export default function OrdersScreen({ navigation }) {
     >
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
+        backgroundColor={colors.card}
       />
-      <CustomHeader title="Orders" rightIcons={['bell', 'user']} />
+      <CustomHeader
+        leftIcon={null}
+        title="Orders"
+        backgroundColor={colors.card}
+      />
 
-      <Text style={[styles.screenSubtitle, { color: colors.subText }]}>
-        Orders confirmed from website.
-      </Text>
-
-      {/* Top tab bar: Pickups / Deliveries */}
+      {/* Top tab bar: Pickups / Picked Up / Deliveries */}
       <View style={styles.mainTabRow}>
-        {['Pickups', 'Deliveries'].map(tab => {
+        {MAIN_TABS.map(tab => {
           const active = mainTab === tab;
           return (
             <TouchableOpacity
@@ -469,9 +621,9 @@ export default function OrdersScreen({ navigation }) {
         })}
       </View>
 
-      {/* Secondary tab row (visual, matches reference layout) */}
-
-      {/* Date + Filter row */}
+      {/* Date + Filter row — same filter used on all 3 tabs
+          (Pickups / Picked Up / Deliveries). Tapping the Filter icon
+          opens a menu to choose Single Date or Date Range. */}
       <View style={styles.dateFilterRow}>
         <Text style={[styles.dateText, { color: colors.text }]}>
           {formatTodayLabel()}
@@ -479,11 +631,11 @@ export default function OrdersScreen({ navigation }) {
         <TouchableOpacity
           activeOpacity={0.8}
           style={styles.filterButton}
-          onPress={() => setFilterVisible(true)}
+          onPress={openFilterMenu}
         >
-          <FilterIcon size={14} color={colors.primary} />
+          <Filter size={14} color={colors.primary} />
           <Text style={[styles.filterText, { color: colors.primary }]}>
-            Filter{activeFilter !== 'All' ? `: ${activeFilter}` : ''}
+            {filterLabel}
           </Text>
         </TouchableOpacity>
       </View>
@@ -507,6 +659,17 @@ export default function OrdersScreen({ navigation }) {
               order={order}
               onNavigate={handleNavigate}
               onViewDetails={handleViewDetails}
+            />
+          ))
+        ) : mainTab === 'Picked Up' ? (
+          // Picked Up tab — same card & same "Deliver via OTP" function as Deliveries tab
+          filteredOrders.map(order => (
+            <DeliveryCard
+              key={order.id}
+              order={order}
+              deliveredOverrideIds={deliveredOverrideIds}
+              onNavigate={handleNavigate}
+              onDeliverPress={openOtpModal}
             />
           ))
         ) : (
@@ -545,60 +708,35 @@ export default function OrdersScreen({ navigation }) {
         }}
       />
 
-      {/* ---------------- FILTER MODAL ---------------- */}
-      <Modal visible={filterVisible} transparent animationType="fade">
-        <Pressable
-          style={[
-            styles.modalBackdrop,
-            { backgroundColor: colors.modalOverlay },
-          ]}
-          onPress={() => setFilterVisible(false)}
-        >
-          <Pressable
-            style={[styles.filterSheet, { backgroundColor: colors.modalCard }]}
-            onPress={() => {}}
-          >
-            <View style={styles.sheetHeaderRow}>
-              <Text style={[styles.sheetTitle, { color: colors.text }]}>
-                Filter by status
-              </Text>
-              <TouchableOpacity onPress={() => setFilterVisible(false)}>
-                <X size={20} color={colors.subText} />
-              </TouchableOpacity>
-            </View>
+      {/* ---------------- FILTER MENU (Single Date / Date Range / Cancel) ---------------- */}
+      <FilterMenu
+        visible={filterMenuVisible}
+        onClose={closeFilterMenu}
+        onSelectSingle={handleChooseSingleDate}
+        onSelectRange={handleChooseDateRange}
+      />
 
-            {filterOptions.map(option => {
-              const active = activeFilter === option;
-              return (
-                <TouchableOpacity
-                  key={option}
-                  activeOpacity={0.8}
-                  style={[
-                    styles.filterOptionRow,
-                    active && { backgroundColor: colors.EditIconBack },
-                  ]}
-                  onPress={() => {
-                    setActiveFilter(option);
-                    setFilterVisible(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.filterOptionText,
-                      { color: active ? colors.primary : colors.text },
-                    ]}
-                  >
-                    {option}
-                  </Text>
-                  {active && <Check size={16} color={colors.primary} />}
-                </TouchableOpacity>
-              );
-            })}
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* ---------------- CALENDAR DATE FILTER MODAL (Single Date) ---------------- */}
+      <CalendarDateFilter
+        visible={calendarVisible}
+        onClose={() => setCalendarVisible(false)}
+        selectedDate={selectedDate}
+        onSelectDate={handleSingleDateSelected}
+        markedDates={markedDates}
+      />
 
-      {/* ---------------- OTP MODAL ---------------- */}
+      {/* ---------------- CALENDAR RANGE FILTER MODAL (Date Range) ---------------- */}
+      <CalendarRangeFilter
+        visible={rangeVisible}
+        onClose={() => setRangeVisible(false)}
+        fromDate={fromDate}
+        toDate={toDate}
+        onApply={handleApplyRange}
+        onReset={handleResetRangeFilter}
+        markedDates={markedDates}
+      />
+
+      {/* ---------------- OTP MODAL (Deliveries / Picked Up tabs) ---------------- */}
       <Modal visible={otpVisible} transparent animationType="fade">
         <Pressable
           style={[
@@ -703,6 +841,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 24,
     marginBottom: 10,
     borderRadius: RADIUS.tab,
+    marginTop: 10,
   },
   mainTabButton: {
     flex: 1,
@@ -714,23 +853,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.tab,
   },
   mainTabText: { ...typography.bodyBold, fontWeight: '700' },
-
-  /* Sub tabs */
-  subTabRow: {
-    flexDirection: 'row',
-    marginHorizontal: 24,
-    marginBottom: 14,
-  },
-  subTabButton: {
-    flex: 1,
-    paddingVertical: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    marginHorizontal: 3,
-    borderRadius: 14,
-  },
-  subTabText: { ...typography.label, fontWeight: '600' },
 
   /* Date + Filter */
   dateFilterRow: {
@@ -842,12 +964,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
-  filterSheet: {
-    borderTopLeftRadius: RADIUS.sheet,
-    borderTopRightRadius: RADIUS.sheet,
-    padding: 20,
-    paddingBottom: 30,
-  },
   sheetHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -855,15 +971,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sheetTitle: { ...typography.h3, fontWeight: '800' },
-  filterOptionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 13,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-  },
-  filterOptionText: { ...typography.bodyBold, fontWeight: '600' },
 
   otpCard: {
     marginHorizontal: 24,

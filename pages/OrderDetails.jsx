@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomHeader from '../components/CustomHeader';
 import { useTheme } from '../components/ThemeContext';
 //import CustomBottomTab from './Custombottomtab';
+import { addConfirmedOrder } from './DeliveryConfirmationStore';
 
 import {
   Package,
@@ -54,6 +55,7 @@ function hexToRgba(hex, alpha = 1) {
 // Fallback data — only used if this screen is opened without an order
 // being passed through route.params (e.g. direct navigation / testing).
 const DEFAULT_ORDER = {
+  id: 0,
   orderId: '#ORD12345',
   status: 'In Transit',
   statusNote: 'Order out for delivery',
@@ -306,20 +308,26 @@ function RouteCard({ order }) {
 // Small green "Call" pill shown next to the Contact Number value.
 // Tapping it triggers the same onPress passed in (handleContactCustomer),
 // same as the "Contact Customer" footer button — just a quicker shortcut.
-function CallBadge({ onPress, colors }) {
+function CallBadge({ onPress, colors, typography }) {
   return (
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={onPress}
       style={[
         styles.callBadge,
-        {
-          backgroundColor: colors.DarkGreenColor || colors.primary || '#1FAA59',
-        },
+        { backgroundColor: colors.DarkGreenColor || colors.primary },
       ]}
     >
-      <PhoneCall size={12} color="#FFFFFF" />
-      <Text style={styles.callBadgeText}>Call</Text>
+      <PhoneCall size={12} color={colors.NavbarTextColour} />
+      <Text
+        style={[
+          typography.label,
+          styles.callBadgeText,
+          { color: colors.NavbarTextColour },
+        ]}
+      >
+        Call
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -356,7 +364,11 @@ function InfoRow({ label, value, valueColor, isLast, onCallPress }) {
         </Text>
 
         {onCallPress ? (
-          <CallBadge onPress={onCallPress} colors={colors} />
+          <CallBadge
+            onPress={onCallPress}
+            colors={colors}
+            typography={typography}
+          />
         ) : null}
       </View>
     </View>
@@ -408,7 +420,7 @@ function DeliveryNotesCard({ notes }) {
 // Renders the OTP as OTP_LENGTH separate boxes, each showing one digit.
 // These boxes are purely visual (pointerEvents="none") — the real
 // TextInput is rendered on top, full-size and invisible, so taps and
-// typing actually reach it. onChangeOtp / otp state are untouched.
+// typing actually reach it. otp state / onChangeOtp logic is untouched.
 function OtpBoxes({ otp, error, colors }) {
   const digits = Array.from({ length: OTP_LENGTH }, (_, i) => otp[i] || '');
 
@@ -425,7 +437,7 @@ function OtpBoxes({ otp, error, colors }) {
               styles.otpBox,
               {
                 borderColor: error
-                  ? '#E11D48'
+                  ? colors.DeleteIcon
                   : isActive || isFilled
                   ? colors.DarkGreenColor || colors.primary
                   : colors.border,
@@ -443,6 +455,9 @@ function OtpBoxes({ otp, error, colors }) {
   );
 }
 
+// The OTP modal now serves the "Confirm Pickup" action for this screen —
+// title/subtitle reflect a pickup confirmation instead of a delivery one.
+// Structure, state handling (otp / error / onVerify) is unchanged.
 function OtpModal({
   visible,
   order,
@@ -452,7 +467,7 @@ function OtpModal({
   onCancel,
   onVerify,
 }) {
-  const { colors } = useTheme();
+  const { colors, typography } = useTheme();
   const hiddenInputRef = useRef(null);
 
   const focusHiddenInput = () => {
@@ -467,11 +482,14 @@ function OtpModal({
       onRequestClose={onCancel}
       onShow={focusHiddenInput}
     >
-      <Pressable style={styles.modalBackdrop} onPress={onCancel}>
+      <Pressable
+        style={[styles.modalBackdrop, { backgroundColor: colors.modalOverlay }]}
+        onPress={onCancel}
+      >
         <Pressable
           style={[
             styles.modalCard,
-            { backgroundColor: colors.card, shadowColor: colors.shadow },
+            { backgroundColor: colors.modalCard, shadowColor: colors.shadow },
           ]}
           onPress={() => {}}
         >
@@ -492,12 +510,20 @@ function OtpModal({
             <ShieldCheck size={26} color={colors.statusPickedUpText} />
           </View>
 
-          <Text style={[styles.modalTitle, { color: colors.text }]}>
-            Enter Delivery OTP
+          <Text
+            style={[typography.h3, styles.modalTitle, { color: colors.text }]}
+          >
+            Enter Pickup OTP
           </Text>
-          <Text style={[styles.modalSubtitle, { color: colors.subText }]}>
+          <Text
+            style={[
+              typography.caption,
+              styles.modalSubtitle,
+              { color: colors.subText },
+            ]}
+          >
             Enter the 4-digit OTP shared by {order?.customerName} to confirm
-            delivery of {order?.orderId}.
+            pickup of {order?.orderId}.
           </Text>
 
           <View style={styles.otpInputWrap}>
@@ -518,7 +544,17 @@ function OtpModal({
             />
           </View>
 
-          {error ? <Text style={styles.otpErrorText}>{error}</Text> : null}
+          {error ? (
+            <Text
+              style={[
+                typography.label,
+                styles.otpErrorText,
+                { color: colors.DeleteIcon },
+              ]}
+            >
+              {error}
+            </Text>
+          ) : null}
 
           <View style={styles.modalActionsRow}>
             <TouchableOpacity
@@ -530,7 +566,13 @@ function OtpModal({
                 { borderColor: colors.border },
               ]}
             >
-              <Text style={[styles.modalCancelText, { color: colors.subText }]}>
+              <Text
+                style={[
+                  typography.button,
+                  styles.modalCancelText,
+                  { color: colors.subText },
+                ]}
+              >
                 Cancel
               </Text>
             </TouchableOpacity>
@@ -541,10 +583,18 @@ function OtpModal({
               style={[
                 styles.modalButton,
                 styles.modalConfirmButton,
-                { backgroundColor: colors.success || '#1FAA59' },
+                { backgroundColor: colors.DarkGreenColor || colors.primary },
               ]}
             >
-              <Text style={styles.modalConfirmText}>Verify</Text>
+              <Text
+                style={[
+                  typography.button,
+                  styles.modalConfirmText,
+                  { color: colors.NavbarTextColour },
+                ]}
+              >
+                Verify
+              </Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -559,23 +609,29 @@ export default function PickupDetailsScreen({ navigation, route }) {
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
 
-  // Order data comes from route.params.order, passed in from PickupScreen
-  // when the user taps a picked order in the list. If this screen is
+  // Order data comes from route.params.order, passed in from OrdersScreen
+  // when the user taps "View Details" on a pickup card. If this screen is
   // somehow opened without params, fall back to DEFAULT_ORDER so the
   // UI never breaks.
   const order = route?.params?.order || DEFAULT_ORDER;
 
-  const handleMarkAsDelivered = () => {
-    // Build the delivered version of the same order (same route params
-    // shape used by DeliveredOrdersScreen) and forward it on so the
-    // Delivery screen can show it in the delivered list.
-    const deliveredOrder = {
+  // Confirms the pickup and reports it back to the Orders screen so the
+  // order can move into the "Picked Up" tab there (same pattern the old
+  // "Mark as Delivered" flow used to navigate away with the updated order —
+  // just pointed at "Orders" with a pickup-flavored payload instead).
+  const handleConfirmPickup = () => {
+    const pickedUpOrder = {
       ...order,
-      status: 'Delivered',
-      statusNote: 'Order delivered successfully',
+      status: 'Picked Up',
+      statusNote: 'Order picked up successfully',
     };
 
-    navigation.navigate('Delivery', { order: deliveredOrder });
+    // Also push it into the shared confirmed-orders store so it shows up
+    // on the Delivered Orders screen right away, in addition to the
+    // Orders screen's Picked Up / Deliveries tabs.
+    addConfirmedOrder(pickedUpOrder);
+
+    navigation.navigate('Orders', { confirmedPickupOrder: pickedUpOrder });
   };
 
   const handleOpenOtpModal = () => {
@@ -606,9 +662,9 @@ export default function PickupDetailsScreen({ navigation, route }) {
     setOtp('');
     setOtpError('');
 
-    // Same logic as before — build the delivered order and navigate,
-    // now only fired after successful OTP entry.
-    handleMarkAsDelivered();
+    // Same "verify then act" pattern as before — now fires the
+    // pickup-confirmation instead of a delivery-confirmation.
+    handleConfirmPickup();
   };
 
   const handleContactCustomer = () => {
@@ -671,10 +727,10 @@ export default function PickupDetailsScreen({ navigation, route }) {
               style={[
                 typography.button,
                 styles.primaryButtonText,
-                { fontSize: 12 },
+                { color: colors.NavbarTextColour, fontSize: 12 },
               ]}
             >
-              Mark as Delivered
+              Confirm Pickup
             </Text>
           </TouchableOpacity>
 
@@ -869,7 +925,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   callBadgeText: {
-    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
     marginLeft: 4,
@@ -893,9 +948,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
   },
-  primaryButtonText: {
-    color: '#FFFFFF',
-  },
+  primaryButtonText: {},
   secondaryButton: {
     flex: 1,
     height: 52,
@@ -913,7 +966,6 @@ const styles = StyleSheet.create({
   // OTP Modal styles
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
@@ -943,14 +995,10 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   modalTitle: {
-    fontSize: 17,
-    fontWeight: '700',
     marginBottom: 6,
     textAlign: 'center',
   },
   modalSubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
     textAlign: 'center',
     lineHeight: 19,
     marginBottom: 18,
@@ -993,9 +1041,6 @@ const styles = StyleSheet.create({
   },
 
   otpErrorText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#E11D48',
     marginBottom: 10,
     alignSelf: 'flex-start',
   },
@@ -1016,16 +1061,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginRight: 10,
   },
-  modalCancelText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  modalCancelText: {},
   modalConfirmButton: {
     marginLeft: 10,
   },
-  modalConfirmText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  modalConfirmText: {},
 });

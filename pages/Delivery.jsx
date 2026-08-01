@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomHeader from '../components/CustomHeader';
 import CustomBottomTab from './Custombottomtab';
 import { useTheme } from '../components/ThemeContext';
+import CalendarDateFilter, {
+  parseOrderDate,
+  formatDateLabel,
+  isSameDate,
+} from './CalendarDateFilter';
+import CalendarRangeFilter from './CalendarRangeFilter';
+import FilterMenu from './FilterMenu';
+import {
+  getConfirmedOrders,
+  subscribeConfirmedOrders,
+} from './DeliveryConfirmationStore';
 
 import {
   MapPin,
@@ -18,6 +29,7 @@ import {
   Package,
   ShieldCheck,
   Inbox,
+  Filter,
 } from 'lucide-react-native';
 
 const RADIUS = {
@@ -25,36 +37,6 @@ const RADIUS = {
   checkCircle: 22,
   chip: 18,
 };
-
-const DELIVERED_ORDERS = [
-  {
-    id: '1',
-    orderId: '#ORD12345',
-    pickup: 'Mumbai, MH',
-    destination: 'Delhi, DL',
-    date: '20 Jul 2026',
-    packages: 2,
-    tileColorKey: 'blue',
-  },
-  {
-    id: '2',
-    orderId: '#ORD12346',
-    pickup: 'Bangalore, KA',
-    destination: 'Hyderabad, TG',
-    date: '19 Jul 2026',
-    packages: 1,
-    tileColorKey: 'orange',
-  },
-  {
-    id: '3',
-    orderId: '#ORD12347',
-    pickup: 'Chennai, TN',
-    destination: 'Coimbatore, TN',
-    date: '18 Jul 2026',
-    packages: 3,
-    tileColorKey: 'blue',
-  },
-];
 
 const buildTileColors = colors => ({
   blue: { bg: colors.statusInTransitBg, icon: colors.statusInTransitText },
@@ -197,98 +179,122 @@ function DeliveredOrderCard({ order }) {
   );
 }
 
-// Simple date filter chip row. Builds its chip list from the unique
-// "date" values present in the orders list, plus an "All" option.
-function DateFilterRow({ dates, selectedDate, onSelect }) {
-  const { colors, typography } = useTheme();
-
-  const chips = ['All', ...dates];
-
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.dateFilterRow}
-      style={styles.dateFilterScroll}
-    >
-      {chips.map(chip => {
-        const isActive =
-          chip === 'All' ? selectedDate === 'All' : selectedDate === chip;
-
-        return (
-          <TouchableOpacity
-            key={chip}
-            activeOpacity={0.8}
-            onPress={() => onSelect(chip)}
-            style={[
-              styles.dateChip,
-              {
-                backgroundColor: isActive ? colors.primary : colors.card,
-                borderColor: isActive ? colors.primary : colors.border,
-                shadowColor: colors.shadow,
-              },
-            ]}
-          >
-            <Calendar
-              size={12}
-              color={isActive ? colors.NavbarTextColour : colors.subText}
-            />
-            <Text
-              style={[
-                typography.label,
-                styles.dateChipText,
-                {
-                  color: isActive ? colors.NavbarTextColour : colors.text,
-                },
-              ]}
-            >
-              {chip}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
-  );
-}
-
 export default function DeliveredOrdersScreen({ navigation, route }) {
   const { colors, isDark, typography } = useTheme();
-  const [selectedDate, setSelectedDate] = useState('All');
 
-  // Order comes from route.params.order — forwarded by the Pickup
-  // (Order Details) screen when the user taps "Mark as Delivered".
-  const passedOrder = route?.params?.order;
+  // Calendar-based date filter (replaces the old date-chip topbar).
+  // selectedDate === null means "All Dates".
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  // Date-range filter — alternative to the single-date filter above.
+  // fromDate/toDate === null means no range is active. filterType tracks
+  // which of the two filtering modes ("single" | "range" | null) is
+  // currently applied.
+  const [rangeVisible, setRangeVisible] = useState(false);
+  const [fromDate, setFromDate] = useState(null);
+  const [toDate, setToDate] = useState(null);
+  const [filterType, setFilterType] = useState(null); // 'single' | 'range' | null
+
+  // Popup shown when the Filter icon is tapped, letting the user choose
+  // between "Single Date" and "Date Range".
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+
+  // Orders confirmed via OTP (either "Confirm Pickup" on the Order
+  // Details screen, or "Deliver" on the Orders screen) live in a shared
+  // store so they show up here regardless of which screen added them.
+  // No hardcoded default list — this screen only shows real confirmed
+  // orders.
+  const [storeOrders, setStoreOrders] = useState(getConfirmedOrders());
+
+  useEffect(() => {
+    const unsubscribe = subscribeConfirmedOrders(setStoreOrders);
+    return unsubscribe;
+  }, []);
 
   const orders = useMemo(() => {
-    const mapped = mapRouteOrderToCard(passedOrder);
+    return storeOrders.map(mapRouteOrderToCard).filter(Boolean);
+  }, [storeOrders]);
 
-    if (!mapped) {
-      return DELIVERED_ORDERS;
-    }
-
-    // Avoid duplicate cards if the same order is delivered/navigated
-    // to more than once.
-    const withoutDuplicate = DELIVERED_ORDERS.filter(
-      item => item.orderId !== mapped.orderId,
-    );
-
-    return [mapped, ...withoutDuplicate];
-  }, [passedOrder]);
-
-  // Unique list of dates available across the current orders, used to
-  // populate the filter chips.
-  const availableDates = useMemo(() => {
-    const uniqueDates = [...new Set(orders.map(item => item.date))];
-    return uniqueDates;
+  // Dates that actually have delivered orders — used to show small dots
+  // on the calendar so the user knows where to look. Shared by both the
+  // single-date and range calendars.
+  const markedDates = useMemo(() => {
+    return orders.map(item => parseOrderDate(item.date)).filter(Boolean);
   }, [orders]);
 
-  // Orders filtered by the selected date chip. "All" shows everything.
+  // Extended filtering logic: supports single date ("single"), a date
+  // range ("range"), or no filter at all (shows everything).
   const filteredOrders = useMemo(() => {
-    if (selectedDate === 'All') {
-      return orders;
+    if (filterType === 'range' && fromDate && toDate) {
+      return orders.filter(item => {
+        const d = parseOrderDate(item.date);
+        if (!d) return false;
+        return d >= fromDate && d <= toDate; // inclusive on both ends
+      });
     }
-    return orders.filter(item => item.date === selectedDate);
-  }, [orders, selectedDate]);
+
+    if (filterType === 'single' && selectedDate) {
+      return orders.filter(item =>
+        isSameDate(parseOrderDate(item.date), selectedDate),
+      );
+    }
+
+    return orders;
+  }, [orders, filterType, selectedDate, fromDate, toDate]);
+
+  // Label shown next to the Filter icon: "All Dates", a single date, or
+  // a "From - To" range.
+  const filterLabel = useMemo(() => {
+    if (filterType === 'range' && fromDate && toDate) {
+      return `${formatDateLabel(fromDate)} - ${formatDateLabel(toDate)}`;
+    }
+    if (filterType === 'single' && selectedDate) {
+      return formatDateLabel(selectedDate);
+    }
+    return 'All Dates';
+  }, [filterType, selectedDate, fromDate, toDate]);
+
+  // --- Filter menu / calendar orchestration --------------------------
+  const openFilterMenu = () => setFilterMenuVisible(true);
+  const closeFilterMenu = () => setFilterMenuVisible(false);
+
+  const handleChooseSingleDate = () => {
+    setFilterMenuVisible(false);
+    setCalendarVisible(true);
+  };
+
+  const handleChooseDateRange = () => {
+    setFilterMenuVisible(false);
+    setRangeVisible(true);
+  };
+
+  // Wraps the existing CalendarDateFilter's onSelectDate so picking a
+  // single date also marks filterType as "single" and clears any active
+  // range, and picking "Show All Dates" (date === null) clears the
+  // filter entirely. The calendar component itself is untouched.
+  const handleSingleDateSelected = date => {
+    setSelectedDate(date);
+    setFromDate(null);
+    setToDate(null);
+    setFilterType(date ? 'single' : null);
+  };
+
+  const handleApplyRange = (from, to) => {
+    setFromDate(from);
+    setToDate(to);
+    setSelectedDate(null);
+    setFilterType(from && to ? 'range' : null);
+    setRangeVisible(false);
+  };
+
+  const handleResetRangeFilter = () => {
+    setFromDate(null);
+    setToDate(null);
+    setSelectedDate(null);
+    setFilterType(null);
+    setRangeVisible(false);
+  };
 
   return (
     <SafeAreaView
@@ -306,21 +312,34 @@ export default function DeliveredOrdersScreen({ navigation, route }) {
         rightIcons={['bell', 'user']}
       />
 
-      <Text
-        style={[
-          typography.subtitle,
-          styles.screenSubtitle,
-          { color: colors.subText },
-        ]}
-      >
-        Orders successfully delivered.
-      </Text>
+      <View style={styles.dateFilterRow}>
+        <Text
+          style={[
+            typography.subtitle,
+            styles.screenSubtitle,
+            { color: colors.subText },
+          ]}
+        >
+          Orders successfully delivered.
+        </Text>
 
-      <DateFilterRow
-        dates={availableDates}
-        selectedDate={selectedDate}
-        onSelect={setSelectedDate}
-      />
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.filterButton}
+          onPress={openFilterMenu}
+        >
+          <Filter size={14} color={colors.primary} />
+          <Text
+            style={[
+              typography.label,
+              styles.filterText,
+              { color: colors.primary },
+            ]}
+          >
+            {filterLabel}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView
         style={styles.flex}
@@ -369,6 +388,34 @@ export default function DeliveredOrdersScreen({ navigation, route }) {
           }
         }}
       />
+
+      {/* ---------------- FILTER MENU (Single Date / Date Range / Cancel) ---------------- */}
+      <FilterMenu
+        visible={filterMenuVisible}
+        onClose={closeFilterMenu}
+        onSelectSingle={handleChooseSingleDate}
+        onSelectRange={handleChooseDateRange}
+      />
+
+      {/* ---------------- CALENDAR DATE FILTER MODAL (Single Date) ---------------- */}
+      <CalendarDateFilter
+        visible={calendarVisible}
+        onClose={() => setCalendarVisible(false)}
+        selectedDate={selectedDate}
+        onSelectDate={handleSingleDateSelected}
+        markedDates={markedDates}
+      />
+
+      {/* ---------------- CALENDAR RANGE FILTER MODAL (Date Range) ---------------- */}
+      <CalendarRangeFilter
+        visible={rangeVisible}
+        onClose={() => setRangeVisible(false)}
+        fromDate={fromDate}
+        toDate={toDate}
+        onApply={handleApplyRange}
+        onReset={handleResetRangeFilter}
+        markedDates={markedDates}
+      />
     </SafeAreaView>
   );
 }
@@ -380,34 +427,20 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  screenSubtitle: {
+  dateFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
     marginTop: 2,
     marginBottom: 16,
   },
-  dateFilterScroll: {
-    flexGrow: 0,
-    marginBottom: 16,
+  screenSubtitle: {
+    flexShrink: 1,
+    marginRight: 12,
   },
-  dateFilterRow: {
-    paddingHorizontal: 24,
-  },
-  dateChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: RADIUS.chip,
-    borderWidth: 1,
-    marginRight: 10,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  dateChipText: {
-    marginLeft: 6,
-  },
+  filterButton: { flexDirection: 'row', alignItems: 'center' },
+  filterText: { fontWeight: '700', marginLeft: 4 },
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 4,

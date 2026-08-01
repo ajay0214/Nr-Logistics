@@ -8,13 +8,13 @@ import Delivery from './Delivery';
 import Profile from './Profile';
 import { useTheme } from '../components/ThemeContext';
 
-/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------  */
 /* Header config per tab.                                              */
 /* `null` means: don't render the shared CustomHeader for this tab —   */
 /* Dashboard already renders its own header (the navy GreetingCard     */
 /* with the logo + bell, embedded inside DashboardScreen). Every other */
 /* tab uses the plain title-based CustomHeader.                        */
-/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------  */
 const TAB_HEADER_CONFIG = {
   Dashboard: null,
   Orders: { title: 'Orders', leftIcon: 'menu', rightIcons: ['search', 'bell'] },
