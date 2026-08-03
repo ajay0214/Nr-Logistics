@@ -450,6 +450,7 @@ export const ThemeProvider = ({ children }) => {
     modalCard: isDark ? '#151B19' : '#FFFFFF',
     modalBorder: isDark ? '#25302C' : '#E5E7EB',
     modalItemActive: isDark ? '#203778' : '#203778',
+    PROGRESS_ACCENT1: isDark ? '#FFFFFF' : '#203778',
   };
 
   // Optional: Prevent flicker before loading

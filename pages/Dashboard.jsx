@@ -9,7 +9,6 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import CustomBottomTab from './Custombottomtab';
 import { useTheme } from '../components/ThemeContext';
 import CustomHeader from '../components/CustomHeader';
 
@@ -375,7 +374,7 @@ function TodaysProgressCard({ completed, total }) {
           >
             <Text
               style={{
-                color: PROGRESS_ACCENT,
+                color: colors.PROGRESS_ACCENT1,
                 fontSize: 12,
                 fontWeight: '600',
               }}
@@ -554,18 +553,6 @@ function GreetingCard({ navigation }) {
           style={styles.greetingPinTwo}
         />
 
-        <CustomHeader
-          showLogo
-          logoLeft
-          leftIcon={null}
-          rightIcons={['bell']}
-          backgroundColor={colors.primary}
-          transparentIcons={['bell']}
-          iconColor={{
-            bell: '#FFFFFF',
-          }}
-        />
-
         <View style={styles.greetingContentRow}>
           <View style={styles.greetingTextBlock}>
             <Text
@@ -696,6 +683,17 @@ export default function DashboardScreen({ navigation }) {
         style={{ backgroundColor: colors.primary }}
       />
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+      <CustomHeader
+        showLogo
+        logoLeft
+        leftIcon={null}
+        rightIcons={['bell']}
+        backgroundColor={colors.primary}
+        transparentIcons={['bell']}
+        iconColor={{
+          bell: '#FFFFFF',
+        }}
+      />
 
       <ScrollView
         style={styles.flex}
@@ -798,7 +796,7 @@ export default function DashboardScreen({ navigation }) {
         {/* Today's Progress card (replaces Recent Activity) */}
       </ScrollView>
 
-      <CustomBottomTab
+      {/* <CustomBottomTab
         activeTab="Dashboard"
         onTabPress={tab => {
           setActiveTab(tab);
@@ -821,7 +819,7 @@ export default function DashboardScreen({ navigation }) {
               break;
           }
         }}
-      />
+      /> */}
     </View>
   );
 }
@@ -880,8 +878,8 @@ const styles = StyleSheet.create({
   },
   greetingCard: {
     paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 40,
+    paddingTop: 30,
+    paddingBottom: 20,
     overflow: 'hidden',
     position: 'relative',
     shadowOffset: { width: 0, height: 6 },
@@ -890,7 +888,7 @@ const styles = StyleSheet.create({
     elevation: 6,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 60,
-    height: 250,
+    height: 200,
   },
   greetingHeaderRow: {
     flexDirection: 'row',

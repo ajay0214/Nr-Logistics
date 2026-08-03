@@ -24,7 +24,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../components/ThemeContext';
-import CustomBottomTab from './Custombottomtab';
+// import CustomBottomTab from './Custombottomtab';
 
 import {
   Camera,
@@ -197,7 +197,7 @@ const ProfileScreen = ({ navigation }) => {
           <View style={{ height: 24 }} />
         </View>
       </ScrollView>
-      <CustomBottomTab
+      {/* <CustomBottomTab
         activeTab="Profile"
         onTabPress={tab => {
           setActiveTab(tab);
@@ -220,7 +220,7 @@ const ProfileScreen = ({ navigation }) => {
               break;
           }
         }}
-      />
+      /> */}
     </SafeAreaView>
   );
 };
@@ -430,6 +430,7 @@ const getStyles = (colors, typography) =>
       shadowOpacity: 0.25,
       shadowRadius: 10,
       elevation: 5,
+      marginTop: 10,
     },
     logoutText: {
       ...typography.button,

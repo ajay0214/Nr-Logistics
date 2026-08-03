@@ -162,7 +162,7 @@ export default function LoginScreen({ navigation }) {
 
               <TouchableOpacity
                 activeOpacity={0.85}
-                onPress={() => navigation.navigate('Dashboard')}
+                onPress={() => navigation.navigate('BottomTab')}
               >
                 <LinearGradient
                   colors={colors.gradientPrimary}

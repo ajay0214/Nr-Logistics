@@ -26,6 +26,18 @@ import { useTheme } from './ThemeContext';
 // you're ready; no other code needs to change.
 const DEFAULT_LOGO = require('../assets/NRLogo.png');
 
+// Placeholder header background illustration (the warehouse / boxes /
+// delivery-truck artwork). Drop your real illustration file at this path
+// and every screen using CustomHeader picks it up automatically — same
+// pattern as DEFAULT_LOGO above. Replace this file whenever you're
+// ready; no other code needs to change.
+const DEFAULT_HEADER_BG = require('../assets/headerbackground.png');
+
+// Fallback navy tone shown behind/around the illustration (matches the
+// artwork's own background so there's no color mismatch at the edges
+// or while the image is loading).
+const HEADER_BG_FALLBACK = '#152A6E';
+
 /**
  * CustomHeader — fully self-contained.
  * Navigation + styling live in here. Every screen only passes:
@@ -148,20 +160,23 @@ const CustomHeader = ({
 
   return (
     <>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundColor || colors.background}
-      />
       <View
         style={[
           styles.container,
-          styles.shadow,
+
           {
-            backgroundColor: backgroundColor || colors.background,
+            backgroundColor: backgroundColor || HEADER_BG_FALLBACK,
             shadowColor: colors.shadow,
           },
         ]}
       >
+        {/* Logistics illustration background — sits behind everything else */}
+        <Image
+          source={DEFAULT_HEADER_BG}
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        />
+
         {/* LEFT */}
         <View style={styles.sideLeft}>
           {logoLeft ? (
@@ -176,10 +191,7 @@ const CustomHeader = ({
             (showLogo ? (
               <Image source={logo} style={styles.logo} resizeMode="contain" />
             ) : (
-              <Text
-                style={[typography.h3, styles.title, { color: colors.text }]}
-                numberOfLines={1}
-              >
+              <Text style={[typography.h3, styles.title]} numberOfLines={1}>
                 {title}
               </Text>
             ))}
@@ -195,23 +207,36 @@ const CustomHeader = ({
 
 const styles = StyleSheet.create({
   container: {
+    width: '100%',
     height: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    //paddingHorizontal: 14,
+    overflow: 'hidden',
 
     paddingTop: Platform.OS === 'ios' ? 0 : 0,
   },
-
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: -4,
+    right: -4,
+    bottom: 0,
+    width: undefined,
+    height: undefined,
+  },
   sideLeft: {
-    width: 130,
+    width: 48,
     justifyContent: 'center',
+    alignItems: 'flex-start',
+    marginLeft: 15,
   },
   sideRight: {
-    minWidth: 44,
+    width: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    marginRight: 15,
   },
   center: {
     flex: 1,
@@ -219,8 +244,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
   },
   logo: {
     width: 120,
@@ -253,6 +279,12 @@ export default CustomHeader;
    exactly as before. The logo image itself defaults to DEFAULT_LOGO
    above; pass a `logo` prop only if a specific screen needs a different
    image than the default placeholder.
+
+   The header background illustration (warehouse / boxes / truck) is
+   drawn from DEFAULT_HEADER_BG above on every screen automatically —
+   drop your real artwork file at '../assets/HeaderBackground.png' and
+   it appears everywhere CustomHeader is used, no per-screen changes
+   needed.
    ========================================================================= */
 
 /*

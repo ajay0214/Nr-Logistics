@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomHeader from '../components/CustomHeader';
-import CustomBottomTab from './Custombottomtab';
+// import CustomBottomTab from './Custombottomtab';
 import { useTheme } from '../components/ThemeContext';
 import CalendarDateFilter, {
   parseOrderDate,
@@ -296,76 +296,92 @@ export default function DeliveredOrdersScreen({ navigation, route }) {
     setRangeVisible(false);
   };
 
+  function formatTodayLabel() {
+    const d = new Date();
+    const day = d.getDate();
+    const month = d.toLocaleString('en-US', { month: 'short' });
+    return `Today, ${day} ${month}`;
+  }
+
   return (
-    <SafeAreaView
-      style={[styles.safeArea, { backgroundColor: colors.background }]}
-      edges={['top']}
-    >
+    <>
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
+        backgroundColor={colors.Primary}
       />
-      <CustomHeader
-        title="Delivered Orders"
-        leftIcon="back"
-        onLeftPress={() => navigation.goBack()}
-        rightIcons={['bell', 'user']}
-      />
-
-      <View style={styles.dateFilterRow}>
-        <Text
-          style={[
-            typography.subtitle,
-            styles.screenSubtitle,
-            { color: colors.subText },
-          ]}
-        >
-          Orders successfully delivered.
-        </Text>
-
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.filterButton}
-          onPress={openFilterMenu}
-        >
-          <Filter size={14} color={colors.primary} />
-          <Text
-            style={[
-              typography.label,
-              styles.filterText,
-              { color: colors.primary },
-            ]}
-          >
-            {filterLabel}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        style={styles.flex}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <SafeAreaView
+        style={{
+          flex: 1,
+          backgroundColor: colors.primary,
+        }}
+        edges={['top']}
       >
-        {filteredOrders.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Inbox size={40} color={colors.subText} />
+        <CustomHeader
+          leftIcon={null}
+          title="Delivered"
+          backgroundColor={colors.primary}
+        />
+
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: colors.background,
+          }}
+        >
+          <View style={styles.dateFilterRow}>
             <Text
               style={[
-                typography.body,
-                styles.emptyText,
-                { color: colors.subText },
+                styles.dateText,
+                { color: colors.text },
+                typography.bodyBold,
               ]}
             >
-              No delivered orders yet
+              {formatTodayLabel()}
             </Text>
-          </View>
-        ) : (
-          filteredOrders.map(item => (
-            <DeliveredOrderCard key={item.id} order={item} />
-          ))
-        )}
-      </ScrollView>
 
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.filterButton}
+              onPress={openFilterMenu}
+            >
+              <Filter size={14} color={colors.primary} />
+              <Text
+                style={[
+                  typography.label,
+                  styles.filterText,
+                  { color: colors.primary },
+                ]}
+              >
+                {filterLabel}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {filteredOrders.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Inbox size={40} color={colors.subText} />
+                <Text
+                  style={[
+                    typography.body,
+                    styles.emptyText,
+                    { color: colors.subText },
+                  ]}
+                >
+                  No delivered orders yet
+                </Text>
+              </View>
+            ) : (
+              filteredOrders.map(item => (
+                <DeliveredOrderCard key={item.id} order={item} />
+              ))
+            )}
+          </ScrollView>
+          {/* 
       <CustomBottomTab
         activeTab="Delivery"
         onTabPress={tab => {
@@ -387,36 +403,38 @@ export default function DeliveredOrdersScreen({ navigation, route }) {
               break;
           }
         }}
-      />
+      /> */}
 
-      {/* ---------------- FILTER MENU (Single Date / Date Range / Cancel) ---------------- */}
-      <FilterMenu
-        visible={filterMenuVisible}
-        onClose={closeFilterMenu}
-        onSelectSingle={handleChooseSingleDate}
-        onSelectRange={handleChooseDateRange}
-      />
+          {/* ---------------- FILTER MENU (Single Date / Date Range / Cancel) ---------------- */}
+          <FilterMenu
+            visible={filterMenuVisible}
+            onClose={closeFilterMenu}
+            onSelectSingle={handleChooseSingleDate}
+            onSelectRange={handleChooseDateRange}
+          />
 
-      {/* ---------------- CALENDAR DATE FILTER MODAL (Single Date) ---------------- */}
-      <CalendarDateFilter
-        visible={calendarVisible}
-        onClose={() => setCalendarVisible(false)}
-        selectedDate={selectedDate}
-        onSelectDate={handleSingleDateSelected}
-        markedDates={markedDates}
-      />
+          {/* ---------------- CALENDAR DATE FILTER MODAL (Single Date) ---------------- */}
+          <CalendarDateFilter
+            visible={calendarVisible}
+            onClose={() => setCalendarVisible(false)}
+            selectedDate={selectedDate}
+            onSelectDate={handleSingleDateSelected}
+            markedDates={markedDates}
+          />
 
-      {/* ---------------- CALENDAR RANGE FILTER MODAL (Date Range) ---------------- */}
-      <CalendarRangeFilter
-        visible={rangeVisible}
-        onClose={() => setRangeVisible(false)}
-        fromDate={fromDate}
-        toDate={toDate}
-        onApply={handleApplyRange}
-        onReset={handleResetRangeFilter}
-        markedDates={markedDates}
-      />
-    </SafeAreaView>
+          {/* ---------------- CALENDAR RANGE FILTER MODAL (Date Range) ---------------- */}
+          <CalendarRangeFilter
+            visible={rangeVisible}
+            onClose={() => setRangeVisible(false)}
+            fromDate={fromDate}
+            toDate={toDate}
+            onApply={handleApplyRange}
+            onReset={handleResetRangeFilter}
+            markedDates={markedDates}
+          />
+        </View>
+      </SafeAreaView>
+    </>
   );
 }
 
@@ -432,15 +450,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
-    marginTop: 2,
-    marginBottom: 16,
+    marginTop: 6,
+    marginBottom: 10,
   },
   screenSubtitle: {
     flexShrink: 1,
     marginRight: 12,
   },
   filterButton: { flexDirection: 'row', alignItems: 'center' },
-  filterText: { fontWeight: '700', marginLeft: 4 },
+  filterText: { fontWeight: '700', marginLeft: 5 },
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 4,
@@ -478,6 +496,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  dateText: { fontWeight: '700' },
+
   routeDot: {
     width: 8,
     height: 8,

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomHeader from '../components/CustomHeader';
-import CustomBottomTab from './Custombottomtab';
+// import CustomBottomTab from './Custombottomtab';
 import { useTheme, typography } from '../components/ThemeContext';
 import dashboardData from '../components/data.json';
 import CalendarDateFilter, {
@@ -577,250 +577,274 @@ export default function OrdersScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView
-      style={[styles.safeArea, { backgroundColor: colors.background }]}
-      edges={['top']}
-    >
+    <>
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.card}
+        backgroundColor={colors.primary}
       />
-      <CustomHeader
-        leftIcon={null}
-        title="Orders"
-        backgroundColor={colors.card}
-      />
-
-      {/* Top tab bar: Pickups / Picked Up / Deliveries */}
-      <View style={styles.mainTabRow}>
-        {MAIN_TABS.map(tab => {
-          const active = mainTab === tab;
-          return (
-            <TouchableOpacity
-              key={tab}
-              activeOpacity={0.85}
-              onPress={() => handleMainTabPress(tab)}
-              style={[
-                styles.mainTabButton,
-                {
-                  backgroundColor: active ? colors.primary : colors.card,
-                  borderColor: active ? colors.primary : colors.border,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.mainTabText,
-                  { color: active ? colors.NavbarTextColour : colors.subText },
-                ]}
-              >
-                {tab}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* Date + Filter row — same filter used on all 3 tabs
-          (Pickups / Picked Up / Deliveries). Tapping the Filter icon
-          opens a menu to choose Single Date or Date Range. */}
-      <View style={styles.dateFilterRow}>
-        <Text style={[styles.dateText, { color: colors.text }]}>
-          {formatTodayLabel()}
-        </Text>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.filterButton}
-          onPress={openFilterMenu}
-        >
-          <Filter size={14} color={colors.primary} />
-          <Text style={[styles.filterText, { color: colors.primary }]}>
-            {filterLabel}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        style={styles.flex}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {filteredOrders.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Inbox size={40} color={colors.subText} />
-            <Text style={[styles.emptyText, { color: colors.subText }]}>
-              No orders yet
-            </Text>
-          </View>
-        ) : mainTab === 'Pickups' ? (
-          filteredOrders.map(order => (
-            <PickupCard
-              key={order.id}
-              order={order}
-              onNavigate={handleNavigate}
-              onViewDetails={handleViewDetails}
-            />
-          ))
-        ) : mainTab === 'Picked Up' ? (
-          // Picked Up tab — same card & same "Deliver via OTP" function as Deliveries tab
-          filteredOrders.map(order => (
-            <DeliveryCard
-              key={order.id}
-              order={order}
-              deliveredOverrideIds={deliveredOverrideIds}
-              onNavigate={handleNavigate}
-              onDeliverPress={openOtpModal}
-            />
-          ))
-        ) : (
-          filteredOrders.map(order => (
-            <DeliveryCard
-              key={order.id}
-              order={order}
-              deliveredOverrideIds={deliveredOverrideIds}
-              onNavigate={handleNavigate}
-              onDeliverPress={openOtpModal}
-            />
-          ))
-        )}
-      </ScrollView>
-
-      <CustomBottomTab
-        activeTab="Orders"
-        onTabPress={tab => {
-          switch (tab) {
-            case 'Dashboard':
-              navigation.navigate('Dashboard');
-              break;
-
-            case 'Orders':
-              navigation.navigate('Orders');
-              break;
-
-            case 'Delivery':
-              navigation.navigate('Delivery');
-              break;
-
-            case 'Profile':
-              navigation.navigate('Profile');
-              break;
-          }
+      <SafeAreaView
+        style={{
+          flex: 1,
+          backgroundColor: colors.primary,
         }}
-      />
+        edges={['top']}
+      >
+        <CustomHeader
+          leftIcon={null}
+          title="Orders"
+          backgroundColor={colors.primary}
+        />
 
-      {/* ---------------- FILTER MENU (Single Date / Date Range / Cancel) ---------------- */}
-      <FilterMenu
-        visible={filterMenuVisible}
-        onClose={closeFilterMenu}
-        onSelectSingle={handleChooseSingleDate}
-        onSelectRange={handleChooseDateRange}
-      />
-
-      {/* ---------------- CALENDAR DATE FILTER MODAL (Single Date) ---------------- */}
-      <CalendarDateFilter
-        visible={calendarVisible}
-        onClose={() => setCalendarVisible(false)}
-        selectedDate={selectedDate}
-        onSelectDate={handleSingleDateSelected}
-        markedDates={markedDates}
-      />
-
-      {/* ---------------- CALENDAR RANGE FILTER MODAL (Date Range) ---------------- */}
-      <CalendarRangeFilter
-        visible={rangeVisible}
-        onClose={() => setRangeVisible(false)}
-        fromDate={fromDate}
-        toDate={toDate}
-        onApply={handleApplyRange}
-        onReset={handleResetRangeFilter}
-        markedDates={markedDates}
-      />
-
-      {/* ---------------- OTP MODAL (Deliveries / Picked Up tabs) ---------------- */}
-      <Modal visible={otpVisible} transparent animationType="fade">
-        <Pressable
-          style={[
-            styles.modalBackdrop,
-            { backgroundColor: colors.modalOverlay },
-          ]}
-          onPress={closeOtpModal}
+        {/* Top tab bar: Pickups / Picked Up / Deliveries */}
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: colors.background,
+          }}
         >
-          <Pressable
-            style={[styles.otpCard, { backgroundColor: colors.modalCard }]}
-            onPress={() => {}}
-          >
-            <View style={styles.sheetHeaderRow}>
-              <Text style={[styles.sheetTitle, { color: colors.text }]}>
-                Enter Delivery OTP
-              </Text>
-              <TouchableOpacity onPress={closeOtpModal}>
-                <X size={20} color={colors.subText} />
-              </TouchableOpacity>
-            </View>
-
-            {otpOrder && (
-              <Text style={[styles.otpSubtitle, { color: colors.subText }]}>
-                {otpOrder.orderId} · {otpOrder.customerName}
-              </Text>
-            )}
-
-            <View style={styles.otpBoxRow}>
-              {otpDigits.map((digit, index) => (
-                <TextInput
-                  key={index}
-                  ref={otpRefs[index]}
-                  value={digit}
-                  onChangeText={text => handleOtpChange(text, index)}
-                  onKeyPress={e => handleOtpKeyPress(e, index)}
-                  keyboardType="number-pad"
-                  maxLength={1}
+          <View style={styles.mainTabRow}>
+            {MAIN_TABS.map(tab => {
+              const active = mainTab === tab;
+              return (
+                <TouchableOpacity
+                  key={tab}
+                  activeOpacity={0.85}
+                  onPress={() => handleMainTabPress(tab)}
                   style={[
-                    styles.otpBox,
+                    styles.mainTabButton,
                     {
-                      borderColor: digit ? colors.primary : colors.border,
-                      color: colors.text,
-                      backgroundColor: colors.background,
+                      backgroundColor: active ? colors.primary : colors.card,
+                      borderColor: active ? colors.primary : colors.border,
                     },
                   ]}
-                />
-              ))}
-            </View>
-
-            {!!otpError && (
-              <Text style={[styles.otpErrorText, { color: colors.DeleteIcon }]}>
-                {otpError}
-              </Text>
-            )}
-
-            <View style={styles.otpButtonRow}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={closeOtpModal}
-                style={[
-                  styles.outlineButton,
-                  { borderColor: colors.border, backgroundColor: colors.card },
-                ]}
-              >
-                <Text
-                  style={[styles.outlineButtonText, { color: colors.text }]}
                 >
-                  Cancel
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.mainTabText,
+                      {
+                        color: active
+                          ? colors.NavbarTextColour
+                          : colors.subText,
+                      },
+                    ]}
+                  >
+                    {tab}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={handleOtpConfirm}
-                style={[styles.pickButton, { backgroundColor: colors.primary }]}
+          {/* Date + Filter row — same filter used on all 3 tabs
+          (Pickups / Picked Up / Deliveries). Tapping the Filter icon
+          opens a menu to choose Single Date or Date Range. */}
+          <View style={styles.dateFilterRow}>
+            <Text style={[styles.dateText, { color: colors.text }]}>
+              {formatTodayLabel()}
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.filterButton}
+              onPress={openFilterMenu}
+            >
+              <Filter size={14} color={colors.primary} />
+              <Text style={[styles.filterText, { color: colors.primary }]}>
+                {filterLabel}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {filteredOrders.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Inbox size={40} color={colors.subText} />
+                <Text style={[styles.emptyText, { color: colors.subText }]}>
+                  No orders yet
+                </Text>
+              </View>
+            ) : mainTab === 'Pickups' ? (
+              filteredOrders.map(order => (
+                <PickupCard
+                  key={order.id}
+                  order={order}
+                  onNavigate={handleNavigate}
+                  onViewDetails={handleViewDetails}
+                />
+              ))
+            ) : mainTab === 'Picked Up' ? (
+              // Picked Up tab — same card & same "Deliver via OTP" function as Deliveries tab
+              filteredOrders.map(order => (
+                <DeliveryCard
+                  key={order.id}
+                  order={order}
+                  deliveredOverrideIds={deliveredOverrideIds}
+                  onNavigate={handleNavigate}
+                  onDeliverPress={openOtpModal}
+                />
+              ))
+            ) : (
+              filteredOrders.map(order => (
+                <DeliveryCard
+                  key={order.id}
+                  order={order}
+                  deliveredOverrideIds={deliveredOverrideIds}
+                  onNavigate={handleNavigate}
+                  onDeliverPress={openOtpModal}
+                />
+              ))
+            )}
+          </ScrollView>
+
+          {/* <CustomBottomTab
+            activeTab="Orders"
+            onTabPress={tab => {
+              switch (tab) {
+                case 'Dashboard':
+                  navigation.navigate('Dashboard');
+                  break;
+
+                case 'Orders':
+                  navigation.navigate('Orders');
+                  break;
+
+                case 'Delivery':
+                  navigation.navigate('Delivery');
+                  break;
+
+                case 'Profile':
+                  navigation.navigate('Profile');
+                  break;
+              }
+            }}
+          /> */}
+
+          {/* ---------------- FILTER MENU (Single Date / Date Range / Cancel) ---------------- */}
+          <FilterMenu
+            visible={filterMenuVisible}
+            onClose={closeFilterMenu}
+            onSelectSingle={handleChooseSingleDate}
+            onSelectRange={handleChooseDateRange}
+          />
+
+          {/* ---------------- CALENDAR DATE FILTER MODAL (Single Date) ---------------- */}
+          <CalendarDateFilter
+            visible={calendarVisible}
+            onClose={() => setCalendarVisible(false)}
+            selectedDate={selectedDate}
+            onSelectDate={handleSingleDateSelected}
+            markedDates={markedDates}
+          />
+
+          {/* ---------------- CALENDAR RANGE FILTER MODAL (Date Range) ---------------- */}
+          <CalendarRangeFilter
+            visible={rangeVisible}
+            onClose={() => setRangeVisible(false)}
+            fromDate={fromDate}
+            toDate={toDate}
+            onApply={handleApplyRange}
+            onReset={handleResetRangeFilter}
+            markedDates={markedDates}
+          />
+
+          {/* ---------------- OTP MODAL (Deliveries / Picked Up tabs) ---------------- */}
+          <Modal visible={otpVisible} transparent animationType="fade">
+            <Pressable
+              style={[
+                styles.modalBackdrop,
+                { backgroundColor: colors.modalOverlay },
+              ]}
+              onPress={closeOtpModal}
+            >
+              <Pressable
+                style={[styles.otpCard, { backgroundColor: colors.modalCard }]}
+                onPress={() => {}}
               >
-                <Check size={14} color={colors.NavbarTextColour} />
-                <Text style={styles.pickButtonText}>Confirm</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </SafeAreaView>
+                <View style={styles.sheetHeaderRow}>
+                  <Text style={[styles.sheetTitle, { color: colors.text }]}>
+                    Enter Delivery OTP
+                  </Text>
+                  <TouchableOpacity onPress={closeOtpModal}>
+                    <X size={20} color={colors.subText} />
+                  </TouchableOpacity>
+                </View>
+
+                {otpOrder && (
+                  <Text style={[styles.otpSubtitle, { color: colors.subText }]}>
+                    {otpOrder.orderId} · {otpOrder.customerName}
+                  </Text>
+                )}
+
+                <View style={styles.otpBoxRow}>
+                  {otpDigits.map((digit, index) => (
+                    <TextInput
+                      key={index}
+                      ref={otpRefs[index]}
+                      value={digit}
+                      onChangeText={text => handleOtpChange(text, index)}
+                      onKeyPress={e => handleOtpKeyPress(e, index)}
+                      keyboardType="number-pad"
+                      maxLength={1}
+                      style={[
+                        styles.otpBox,
+                        {
+                          borderColor: digit ? colors.primary : colors.border,
+                          color: colors.text,
+                          backgroundColor: colors.background,
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+
+                {!!otpError && (
+                  <Text
+                    style={[styles.otpErrorText, { color: colors.DeleteIcon }]}
+                  >
+                    {otpError}
+                  </Text>
+                )}
+
+                <View style={styles.otpButtonRow}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={closeOtpModal}
+                    style={[
+                      styles.outlineButton,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.card,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.outlineButtonText, { color: colors.text }]}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={handleOtpConfirm}
+                    style={[
+                      styles.pickButton,
+                      { backgroundColor: colors.primary },
+                    ]}
+                  >
+                    <Check size={14} color={colors.NavbarTextColour} />
+                    <Text style={styles.pickButtonText}>Confirm</Text>
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </Pressable>
+          </Modal>
+        </View>
+      </SafeAreaView>
+    </>
   );
 }
 

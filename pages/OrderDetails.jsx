@@ -593,7 +593,7 @@ function OtpModal({
                   { color: colors.NavbarTextColour },
                 ]}
               >
-                Verify
+                Verifyy
               </Text>
             </TouchableOpacity>
           </View>
@@ -626,12 +626,14 @@ export default function PickupDetailsScreen({ navigation, route }) {
       statusNote: 'Order picked up successfully',
     };
 
-    // Also push it into the shared confirmed-orders store so it shows up
-    // on the Delivered Orders screen right away, in addition to the
-    // Orders screen's Picked Up / Deliveries tabs.
     addConfirmedOrder(pickedUpOrder);
 
-    navigation.navigate('Orders', { confirmedPickupOrder: pickedUpOrder });
+    navigation.navigate('BottomTab', {
+      screen: 'Orders',
+      params: {
+        confirmedPickupOrder: pickedUpOrder,
+      },
+    });
   };
 
   const handleOpenOtpModal = () => {
@@ -675,95 +677,102 @@ export default function PickupDetailsScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView
-      style={[styles.safeArea, { backgroundColor: colors.background }]}
-      edges={['top']}
-    >
+    <>
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
+        backgroundColor={colors.primary}
       />
-      <CustomHeader
-        title="Order Details"
-        leftIcon="back"
-        onLeftPress={() => navigation.goBack()}
-        rightIcons={['bell', 'user']}
-      />
-
-      <ScrollView
-        style={styles.flex}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: colors.primary }]}
+        edges={['top']}
       >
-        <SummaryCard order={order} />
-
-        <SectionTitle>Delivery Addresses</SectionTitle>
-        <RouteCard order={order} />
-
-        <SectionTitle>Order Information</SectionTitle>
-        <OrderInfoCard order={order} onCallPress={handleContactCustomer} />
-
-        <SectionTitle>Delivery Notes</SectionTitle>
-        <DeliveryNotesCard notes={order.deliveryNotes} />
+        <CustomHeader
+          title="Order Details"
+          leftIcon="back"
+          onLeftPress={() => navigation.goBack()}
+          rightIcons={['bell', 'user']}
+        />
 
         <View
-          style={[
-            styles.footerButtons,
-            {
-              backgroundColor: colors.background,
-              borderTopColor: colors.border,
-            },
-          ]}
+          style={{
+            flex: 1,
+            backgroundColor: colors.background,
+          }}
         >
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={handleOpenOtpModal}
-            style={[
-              styles.primaryButton,
-              { backgroundColor: colors.DarkGreenColor || colors.primary },
-            ]}
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <Text
+            <SummaryCard order={order} />
+
+            <SectionTitle>Delivery Addresses</SectionTitle>
+            <RouteCard order={order} />
+
+            <SectionTitle>Order Information</SectionTitle>
+            <OrderInfoCard order={order} onCallPress={handleContactCustomer} />
+
+            <SectionTitle>Delivery Notes</SectionTitle>
+            <DeliveryNotesCard notes={order.deliveryNotes} />
+
+            <View
               style={[
-                typography.button,
-                styles.primaryButtonText,
-                { color: colors.NavbarTextColour, fontSize: 12 },
+                styles.footerButtons,
+                {
+                  backgroundColor: colors.background,
+                  borderTopColor: colors.border,
+                },
               ]}
             >
-              Confirm Pickup
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleOpenOtpModal}
+                style={[
+                  styles.primaryButton,
+                  { backgroundColor: colors.DarkGreenColor || colors.primary },
+                ]}
+              >
+                <Text
+                  style={[
+                    typography.button,
+                    styles.primaryButtonText,
+                    { color: colors.NavbarTextColour, fontSize: 12 },
+                  ]}
+                >
+                  Confirm Pickup
+                </Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={handleContactCustomer}
-            style={[styles.secondaryButton, { borderColor: colors.border }]}
-          >
-            <PhoneCall size={16} color={colors.text} />
-            <Text
-              style={[
-                typography.button,
-                styles.secondaryButtonText,
-                { color: colors.text, fontSize: 12 },
-              ]}
-            >
-              Contact
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleContactCustomer}
+                style={[styles.secondaryButton, { borderColor: colors.border }]}
+              >
+                <PhoneCall size={16} color={colors.text} />
+                <Text
+                  style={[
+                    typography.button,
+                    styles.secondaryButtonText,
+                    { color: colors.text, fontSize: 12 },
+                  ]}
+                >
+                  Contact
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
 
-      <OtpModal
-        visible={otpModalVisible}
-        order={order}
-        otp={otp}
-        error={otpError}
-        onChangeOtp={handleChangeOtp}
-        onCancel={handleCancelOtp}
-        onVerify={handleVerifyOtp}
-      />
+          <OtpModal
+            visible={otpModalVisible}
+            order={order}
+            otp={otp}
+            error={otpError}
+            onChangeOtp={handleChangeOtp}
+            onCancel={handleCancelOtp}
+            onVerify={handleVerifyOtp}
+          />
 
-      {/* <CustomBottomTab
+          {/* <CustomBottomTab
         activeTab="Pickup"
         onTabPress={tab => {
           switch (tab) {
@@ -785,7 +794,9 @@ export default function PickupDetailsScreen({ navigation, route }) {
           }
         }}
       /> */}
-    </SafeAreaView>
+        </View>
+      </SafeAreaView>
+    </>
   );
 }
 

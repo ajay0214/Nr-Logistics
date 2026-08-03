@@ -10,6 +10,7 @@ import Pickup from './pages/Pickup';
 import Profile from './pages/Profile';
 import OrderDetails from './pages/OrderDetails';
 import HomeLayout from './pages/HomeLayout';
+import BottomTab from './pages/BottomTab';
 
 const Stack = createNativeStackNavigator();
 
@@ -25,17 +26,11 @@ const App = () => {
         >
           <Stack.Screen name="LoginScreen" component={LoginScreen} />
 
+          <Stack.Screen name="BottomTab" component={BottomTab} />
+
           <Stack.Screen name="HomeLayout" component={HomeLayout} />
 
-          <Stack.Screen name="Dashboard" component={Dashboard} />
-          <Stack.Screen name="Delivery" component={Delivery} />
-
-          <Stack.Screen name="Orders" component={Orders} />
-
-          <Stack.Screen name="Pickup" component={Pickup} />
           <Stack.Screen name="OrderDetails" component={OrderDetails} />
-
-          <Stack.Screen name="Profile" component={Profile} />
         </Stack.Navigator>
       </NavigationContainer>
     </ThemeProvider>
