@@ -10,7 +10,7 @@
 // LIGHT/DARK object, so this screen stays in sync with the rest of the
 // app's theme, including persisted dark mode.
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -21,11 +21,12 @@ import {
   Switch,
   StatusBar,
   StyleSheet,
+  Modal,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../components/ThemeContext';
 // import CustomBottomTab from './Custombottomtab';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Camera,
   Sun,
@@ -56,8 +57,49 @@ const ProfileScreen = ({ navigation }) => {
   const { isDark, colors, typography, toggleTheme } = useTheme();
   const [notificationsOn, setNotificationsOn] = useState(true);
   const [activeTab, setActiveTab] = useState('Profile');
+  const [user, setUser] = useState(null);
+
+  // ---------------------------------------------------------------------
+  // Logout confirmation modal state
+  // ---------------------------------------------------------------------
+
+  useEffect(() => {
+    getUserData();
+  }, []);
+
+  const getUserData = async () => {
+    try {
+      const data = await AsyncStorage.getItem('UserData');
+
+      if (data) {
+        const userData = JSON.parse(data);
+        setUser(userData);
+
+        console.log(userData);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
 
   const styles = getStyles(colors, typography);
+
+  const handleLogoutPress = () => {
+    setLogoutModalVisible(true);
+  };
+
+  const handleCancelLogout = () => {
+    setLogoutModalVisible(false);
+  };
+
+  const handleConfirmLogout = () => {
+    setLogoutModalVisible(false);
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'LoginScreen' }],
+    });
+  };
 
   return (
     <SafeAreaView
@@ -68,60 +110,55 @@ const ProfileScreen = ({ navigation }) => {
         backgroundColor={colors.gradientPrimary[0]}
         translucent
       />
+      {/* ---------- Hero background ---------- */}
+      <LinearGradient
+        colors={colors.gradientPrimary}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.hero}
+      >
+        {/* Decorative accents */}
+        <View style={styles.heroCircleLarge} />
+        <View style={styles.heroCircleSmall} />
+        <View style={styles.heroCircleTiny} />
+
+        <View style={styles.headerRow}>
+          <Text style={styles.screenTitle}>Profile</Text>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => toggleTheme(!isDark)}
+            style={styles.themeButton}
+          >
+            {isDark ? (
+              <Moon size={18} color="#FFFFFF" strokeWidth={2} />
+            ) : (
+              <Sun size={18} color="#FFFFFF" strokeWidth={2} />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.avatarSection}>
+          <View style={styles.avatarWrapper}>
+            <Image
+              source={{
+                uri: user?.PhotoURL || 'https://i.pravatar.cc/150?img=12',
+              }}
+              style={styles.avatar}
+            />
+          </View>
+          <Text style={styles.name}> {user?.FullName}</Text>
+          <Text style={styles.email}>{user?.Email}</Text>
+
+          <View style={styles.badge}>
+            <BadgeCheck size={13} color="#FFFFFF" strokeWidth={2.4} />
+            <Text style={styles.badgeText}>Premium Member</Text>
+          </View>
+        </View>
+      </LinearGradient>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ---------- Hero background ---------- */}
-        <LinearGradient
-          colors={colors.gradientPrimary}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
-        >
-          {/* Decorative accents */}
-          <View style={styles.heroCircleLarge} />
-          <View style={styles.heroCircleSmall} />
-          <View style={styles.heroCircleTiny} />
-
-          <View style={styles.headerRow}>
-            <Text style={styles.screenTitle}>Profile</Text>
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => toggleTheme(!isDark)}
-              style={styles.themeButton}
-            >
-              {isDark ? (
-                <Moon size={18} color="#FFFFFF" strokeWidth={2} />
-              ) : (
-                <Sun size={18} color="#FFFFFF" strokeWidth={2} />
-              )}
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.avatarSection}>
-            <View style={styles.avatarWrapper}>
-              <Image
-                source={{ uri: 'https://i.pravatar.cc/150?img=12' }}
-                style={styles.avatar}
-              />
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[styles.editBadge, { backgroundColor: colors.primary }]}
-              >
-                <Camera size={14} color="#FFFFFF" strokeWidth={2.2} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.name}>Ajay Kumar</Text>
-            <Text style={styles.email}>ajay@gmail.com</Text>
-
-            <View style={styles.badge}>
-              <BadgeCheck size={13} color="#FFFFFF" strokeWidth={2.4} />
-              <Text style={styles.badgeText}>Premium Member</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
         {/* ---------- Floating content ---------- */}
         <View style={styles.contentWrapper}>
           {/* Profile Card */}
@@ -129,23 +166,23 @@ const ProfileScreen = ({ navigation }) => {
             <InfoRow
               Icon={Phone}
               label="Phone Number"
-              value="+91 98765 43210"
+              value={`${user?.MobileCode} ${user?.MobileNumber}`}
               colors={colors}
               styles={styles}
             />
             <View style={styles.divider} />
             <InfoRow
               Icon={BadgeCheck}
-              label="Employee ID"
-              value="LM-2048"
+              label="Employment Type"
+              value={user?.EmploymentType}
               colors={colors}
               styles={styles}
             />
             <View style={styles.divider} />
             <InfoRow
               Icon={Briefcase}
-              label="Designation"
-              value="Delivery Partner"
+              label="Joining Date"
+              value={user?.JoiningDate}
               colors={colors}
               styles={styles}
               last
@@ -189,6 +226,7 @@ const ProfileScreen = ({ navigation }) => {
           <TouchableOpacity
             activeOpacity={0.85}
             style={[styles.logoutButton, { backgroundColor: colors.primary }]}
+            onPress={handleLogoutPress}
           >
             <LogOut size={18} color="#FFFFFF" strokeWidth={2.2} />
             <Text style={styles.logoutText}>Logout</Text>
@@ -221,6 +259,53 @@ const ProfileScreen = ({ navigation }) => {
           }
         }}
       /> */}
+
+      {/* ---------- Logout confirmation modal ---------- */}
+      <Modal
+        visible={logoutModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelLogout}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View
+              style={[
+                styles.modalIconCircle,
+                { backgroundColor: colors.EditIconBack },
+              ]}
+            >
+              <LogOut size={22} color={colors.primary} strokeWidth={2.2} />
+            </View>
+            <Text style={styles.modalTitle}>Logout</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to logout?
+            </Text>
+
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={handleCancelLogout}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[
+                  styles.modalButton,
+                  styles.modalConfirmButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleConfirmLogout}
+              >
+                <Text style={styles.modalConfirmText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -245,7 +330,7 @@ const InfoRow = ({ Icon, label, value, colors, styles, last }) => (
 const getStyles = (colors, typography) =>
   StyleSheet.create({
     safeArea: { flex: 1 },
-    scrollContent: { paddingBottom: 16 },
+    scrollContent: { paddingBottom: 86 },
 
     // ---------- Hero ----------
     hero: {
@@ -436,6 +521,73 @@ const getStyles = (colors, typography) =>
       ...typography.button,
       color: '#FFFFFF',
       marginLeft: 8,
+    },
+
+    // ---------- Logout confirmation modal ----------
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+    },
+    modalCard: {
+      width: '100%',
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      paddingVertical: 24,
+      paddingHorizontal: 20,
+      alignItems: 'center',
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.2,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    modalIconCircle: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 12,
+    },
+    modalTitle: {
+      ...typography.h3,
+      color: colors.text,
+      marginBottom: 6,
+    },
+    modalMessage: {
+      ...typography.newbody,
+      color: colors.subText,
+      textAlign: 'center',
+      marginBottom: 20,
+    },
+    modalButtonRow: {
+      flexDirection: 'row',
+      width: '100%',
+      gap: 12,
+    },
+    modalButton: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalCancelButton: {
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderColor: colors.border,
+    },
+    modalCancelText: {
+      ...typography.button,
+      color: colors.text,
+    },
+    modalConfirmButton: {},
+    modalConfirmText: {
+      ...typography.button,
+      color: '#FFFFFF',
     },
   });
 

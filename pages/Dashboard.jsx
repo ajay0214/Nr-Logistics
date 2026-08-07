@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../components/ThemeContext';
 import CustomHeader from '../components/CustomHeader';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   Menu,
@@ -529,7 +530,7 @@ function WorldDotsBackground({ color }) {
 // bell, profile icon) live inside the same dark navy surface as the
 // greeting copy and avatar, with one continuous bottom curve carrying it
 // into the page content beneath.
-function GreetingCard({ navigation }) {
+function GreetingCard({ navigation, fullName, photoUrl }) {
   const { colors, typography } = useTheme();
 
   return (
@@ -573,9 +574,7 @@ function GreetingCard({ navigation }) {
               ]}
             >
               Welcome,{' '}
-              <Text style={{ color: colors.secondary }}>
-                {dashboardData.user.name}!
-              </Text>
+              <Text style={{ color: colors.secondary }}>{fullName}</Text>
             </Text>
 
             <Text
@@ -603,7 +602,11 @@ function GreetingCard({ navigation }) {
               ]}
             >
               <Image
-                source={{ uri: 'https://i.pravatar.cc/150?img=12' }}
+                source={
+                  photoUrl
+                    ? { uri: photoUrl }
+                    : { uri: 'https://i.pravatar.cc/150?img=12' }
+                }
                 style={styles.greetingAvatarImage}
               />
             </View>
@@ -635,6 +638,29 @@ function GreetingCard({ navigation }) {
 export default function DashboardScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('Dashboard');
   const { colors, typography, isDark } = useTheme();
+  const [fullName, setFullName] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
+
+  useEffect(() => {
+    getUserData();
+  }, []);
+
+  const getUserData = async () => {
+    try {
+      const user = await AsyncStorage.getItem('UserData');
+
+      if (user) {
+        const userData = JSON.parse(user);
+
+        setFullName(userData.FullName);
+        setPhotoUrl(userData.PhotoURL);
+
+        console.log(userData.PhotoURL);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   // Show first 4 orders from the full order list (not filtered by status)
   const todaysDeliveries = dashboardData.orders.slice(0, 4);
@@ -700,7 +726,11 @@ export default function DashboardScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <GreetingCard navigation={navigation} />
+        <GreetingCard
+          navigation={navigation}
+          fullName={fullName}
+          photoUrl={photoUrl}
+        />
 
         <TodaysProgressCard
           completed={dashboardData.progress.completed}

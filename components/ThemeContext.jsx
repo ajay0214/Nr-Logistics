@@ -33,6 +33,14 @@ export const typography = {
     letterSpacing: 0.3,
     fontWeight: 700,
   },
+  h11: {
+    fontFamily: Fonts.headingBlack,
+
+    fontSize: 25,
+    lineHeight: 36,
+    letterSpacing: 0.3,
+    fontWeight: 700,
+  },
   h1: {
     fontFamily: Fonts.headingExtraBold,
     fontSize: 26,

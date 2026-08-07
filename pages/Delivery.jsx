@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   Inbox,
   Filter,
+  ChevronDown,
 } from 'lucide-react-native';
 
 const RADIUS = {
@@ -303,6 +304,13 @@ export default function DeliveredOrdersScreen({ navigation, route }) {
     return `Today, ${day} ${month}`;
   }
 
+  // Weekday shown under the "Today, D Mon" line (e.g. "Friday"),
+  // matching the reference design.
+  function formatTodayWeekday() {
+    const d = new Date();
+    return d.toLocaleString('en-US', { weekday: 'long' });
+  }
+
   return (
     <>
       <StatusBar
@@ -328,20 +336,57 @@ export default function DeliveredOrdersScreen({ navigation, route }) {
             backgroundColor: colors.background,
           }}
         >
-          <View style={styles.dateFilterRow}>
-            <Text
-              style={[
-                styles.dateText,
-                { color: colors.text },
-                typography.bodyBold,
-              ]}
-            >
-              {formatTodayLabel()}
-            </Text>
+          {/* ---------------- TODAY / FILTER CARD ---------------- */}
+          <View
+            style={[
+              styles.dateFilterRow,
+              {
+                backgroundColor: colors.card,
+                shadowColor: colors.shadow,
+              },
+            ]}
+          >
+            <View style={styles.dateLeftCol}>
+              <View
+                style={[
+                  styles.dateIconBox,
+                  { backgroundColor: colors.statusInTransitBg },
+                ]}
+              >
+                <Calendar size={18} color={colors.primary} />
+              </View>
+
+              <View>
+                <Text
+                  style={[
+                    typography.bodyBold,
+                    styles.dateText,
+                    { color: colors.text },
+                  ]}
+                >
+                  {formatTodayLabel()}
+                </Text>
+                <Text
+                  style={[
+                    typography.caption,
+                    styles.weekdayText,
+                    { color: colors.subText },
+                  ]}
+                >
+                  {formatTodayWeekday()}
+                </Text>
+              </View>
+            </View>
 
             <TouchableOpacity
               activeOpacity={0.8}
-              style={styles.filterButton}
+              style={[
+                styles.filterButton,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                },
+              ]}
               onPress={openFilterMenu}
             >
               <Filter size={14} color={colors.primary} />
@@ -354,6 +399,7 @@ export default function DeliveredOrdersScreen({ navigation, route }) {
               >
                 {filterLabel}
               </Text>
+              <ChevronDown size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
 
@@ -405,7 +451,35 @@ export default function DeliveredOrdersScreen({ navigation, route }) {
         }}
       /> */}
 
-          {/* ---------------- FILTER MENU (Single Date / Date Range / Cancel) ---------------- */}
+          {/* ---------------- FILTER MENU (Single Date / Date Range / Cancel) ----------------
+              NOTE: This popup's own modal box (size + centering) is defined
+              inside FilterMenu.js, which wasn't provided to me, so I can't
+              edit its layout from this file. To make it a small, centered
+              modal, open FilterMenu.js and make sure its <Modal> wrapper
+              looks like this:
+
+                <Modal transparent visible={visible} animationType="fade">
+                  <View style={{
+                    flex: 1,
+                    justifyContent: 'center',   // vertical center
+                    alignItems: 'center',       // horizontal center
+                    backgroundColor: 'rgba(0,0,0,0.35)',
+                  }}>
+                    <View style={{
+                      width: '80%',             // small width instead of full-width sheet
+                      maxWidth: 320,
+                      borderRadius: 20,
+                      padding: 16,
+                      backgroundColor: colors.card,
+                    }}>
+                      {/* existing menu options go here, unchanged *\/}
+                    </View>
+                  </View>
+                </Modal>
+
+              Send me FilterMenu.js and I'll return the exact full file with
+              this applied.
+          ---------------- */}
           <FilterMenu
             visible={filterMenuVisible}
             onClose={closeFilterMenu}
@@ -445,20 +519,62 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+
+  // ---- Today / Filter card (matches reference image) ----
   dateFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    marginTop: 6,
-    marginBottom: 10,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
+  dateLeftCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  dateIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  dateText: {
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  weekdayText: {
+    marginTop: 2,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  filterText: {
+    fontWeight: '700',
+    marginLeft: 6,
+    marginRight: 4,
+    fontSize: 13,
+  },
+
   screenSubtitle: {
     flexShrink: 1,
     marginRight: 12,
   },
-  filterButton: { flexDirection: 'row', alignItems: 'center' },
-  filterText: { fontWeight: '700', marginLeft: 5 },
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 4,
@@ -496,7 +612,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  dateText: { fontWeight: '700' },
 
   routeDot: {
     width: 8,

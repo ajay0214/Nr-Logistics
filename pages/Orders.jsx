@@ -9,6 +9,7 @@ import {
   Modal,
   TextInput,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomHeader from '../components/CustomHeader';
@@ -35,6 +36,7 @@ import {
   X,
   ShieldCheck,
   Filter,
+  ChevronDown,
 } from 'lucide-react-native';
 
 const RADIUS = {
@@ -89,12 +91,18 @@ function formatTodayLabel() {
   return `Today, ${day} ${month}`;
 }
 
+// Weekday line shown under the "Today, D Mon" label (e.g. "Friday")
+function formatWeekdayLabel() {
+  const d = new Date();
+  return d.toLocaleString('en-US', { weekday: 'long' });
+}
+
 /* ---------------------------------------------------
    PICKUP CARD
    (No OTP button here anymore — pickup confirmation now
    happens on the Order Details screen via "View Details".)
 --------------------------------------------------- */
-function PickupCard({ order, onNavigate, onViewDetails }) {
+function PickupCard({ order, onNavigate, onViewDetails, viewDetailsLoading }) {
   const { colors } = useTheme();
   const status = getPickupStatus(order);
   const statusConfig = getPickupStatusColors(status, colors);
@@ -157,16 +165,21 @@ function PickupCard({ order, onNavigate, onViewDetails }) {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => onViewDetails(order)}
+          disabled={viewDetailsLoading}
           style={[
             styles.outlineButton,
             { borderColor: colors.border, backgroundColor: colors.card },
           ]}
         >
-          <Text style={[styles.outlineButtonText, { color: colors.text }]}>
-            View Details
-          </Text>
+          {viewDetailsLoading ? (
+            <ActivityIndicator size="small" color={colors.text} />
+          ) : (
+            <Text style={[styles.outlineButtonText, { color: colors.text }]}>
+              View Details
+            </Text>
+          )}
         </TouchableOpacity>
-
+        {/* 
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => onNavigate(order)}
@@ -174,7 +187,7 @@ function PickupCard({ order, onNavigate, onViewDetails }) {
         >
           <Navigation size={14} color={colors.NavbarTextColour} />
           <Text style={styles.pickButtonText}>Navigate</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
     </View>
   );
@@ -188,6 +201,8 @@ function DeliveryCard({
   deliveredOverrideIds,
   onNavigate,
   onDeliverPress,
+  deliverLoading,
+  navigateLoading,
 }) {
   const { colors } = useTheme();
   const status = getDeliveryStatus(order, deliveredOverrideIds);
@@ -306,15 +321,26 @@ function DeliveryCard({
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => onDeliverPress(order)}
+              disabled={deliverLoading}
               style={[styles.pickButton, { backgroundColor: colors.primary }]}
             >
-              <Check size={14} color={colors.NavbarTextColour} />
-              <Text style={styles.pickButtonText}>Deliver</Text>
+              {deliverLoading ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.NavbarTextColour}
+                />
+              ) : (
+                <>
+                  <Check size={14} color={colors.NavbarTextColour} />
+                  <Text style={styles.pickButtonText}>Deliver</Text>
+                </>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => onNavigate(order)}
+              disabled={navigateLoading}
               style={[
                 styles.outlineButton,
                 {
@@ -324,10 +350,18 @@ function DeliveryCard({
                 },
               ]}
             >
-              <Navigation size={14} color={colors.text} />
-              <Text style={[styles.outlineButtonText, { color: colors.text }]}>
-                Navigate
-              </Text>
+              {navigateLoading ? (
+                <ActivityIndicator size="small" color={colors.text} />
+              ) : (
+                <>
+                  <Navigation size={14} color={colors.text} />
+                  <Text
+                    style={[styles.outlineButtonText, { color: colors.text }]}
+                  >
+                    Navigate
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
           </>
         )}
@@ -377,6 +411,15 @@ export default function OrdersScreen({ navigation, route }) {
   const [otpError, setOtpError] = useState('');
   const otpRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
 
+  // ---- Activity-indicator loading states (UI only — logic unchanged) ----
+  const [tabLoading, setTabLoading] = useState(null); // which tab label is loading
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [viewDetailsLoadingId, setViewDetailsLoadingId] = useState(null);
+  const [navigateLoadingId, setNavigateLoadingId] = useState(null);
+  const [deliverLoadingId, setDeliverLoadingId] = useState(null);
+  const [otpCancelLoading, setOtpCancelLoading] = useState(false);
+  const [otpConfirmLoading, setOtpConfirmLoading] = useState(false);
+
   const orders = useMemo(() => dashboardData.orders, []);
 
   // Pick up the result of the OTP confirmation done on the Order
@@ -402,11 +445,15 @@ export default function OrdersScreen({ navigation, route }) {
   }, [route?.params?.confirmedPickupOrder]);
 
   const handleMainTabPress = tab => {
-    setMainTab(tab);
-    setSelectedDate(null);
-    setFromDate(null);
-    setToDate(null);
-    setFilterType(null);
+    setTabLoading(tab);
+    setTimeout(() => {
+      setMainTab(tab);
+      setSelectedDate(null);
+      setFromDate(null);
+      setToDate(null);
+      setFilterType(null);
+      setTabLoading(null);
+    }, 300);
   };
 
   // Orders scoped to the current tab, BEFORE the date filter is applied.
@@ -475,25 +522,47 @@ export default function OrdersScreen({ navigation, route }) {
 
   const handleNavigate = order => {
     // Hook this up to your real map/navigation flow when ready.
-    navigation.navigate?.('Navigate', { order });
+    setNavigateLoadingId(order.id);
+    setTimeout(() => {
+      navigation.navigate?.('Navigate', { order });
+      setNavigateLoadingId(null);
+    }, 300);
   };
 
   const handleViewDetails = order => {
-    navigation.navigate?.('OrderDetails', { order });
+    setViewDetailsLoadingId(order.id);
+    setTimeout(() => {
+      navigation.navigate?.('OrderDetails', { order });
+      setViewDetailsLoadingId(null);
+    }, 300);
   };
 
   const openOtpModal = order => {
-    setOtpOrder(order);
-    setOtpDigits(['', '', '', '']);
-    setOtpError('');
-    setOtpVisible(true);
+    setDeliverLoadingId(order.id);
+    setTimeout(() => {
+      setOtpOrder(order);
+      setOtpDigits(['', '', '', '']);
+      setOtpError('');
+      setOtpVisible(true);
+      setDeliverLoadingId(null);
+    }, 300);
   };
 
-  const closeOtpModal = () => {
+  // Plain reset (no loading wrapper) — reused by both the Cancel button
+  // and the Confirm flow below.
+  const resetOtpModal = () => {
     setOtpVisible(false);
     setOtpOrder(null);
     setOtpDigits(['', '', '', '']);
     setOtpError('');
+  };
+
+  const closeOtpModal = () => {
+    setOtpCancelLoading(true);
+    setTimeout(() => {
+      resetOtpModal();
+      setOtpCancelLoading(false);
+    }, 300);
   };
 
   const handleOtpChange = (text, index) => {
@@ -521,22 +590,32 @@ export default function OrdersScreen({ navigation, route }) {
       return;
     }
 
+    setOtpConfirmLoading(true);
     const confirmedOrder = otpOrder;
-    setDeliveredOverrideIds(prev => [...prev, confirmedOrder.id]);
-    closeOtpModal();
+    setTimeout(() => {
+      setDeliveredOverrideIds(prev => [...prev, confirmedOrder.id]);
+      resetOtpModal();
 
-    // Push into the shared confirmed-orders store so it shows up on the
-    // Delivered Orders screen right away.
-    addConfirmedOrder({ ...confirmedOrder, status: 'Delivered' });
+      // Push into the shared confirmed-orders store so it shows up on the
+      // Delivered Orders screen right away.
+      addConfirmedOrder({ ...confirmedOrder, status: 'Delivered' });
 
-    // Send the just-delivered order over to the Delivery screen so it
-    // shows up in that list right away (same hand-off pattern already
-    // used by the pickup-OTP flow when it navigates back to Orders).
-    navigation.navigate('Delivery', { order: confirmedOrder });
+      // Send the just-delivered order over to the Delivery screen so it
+      // shows up in that list right away (same hand-off pattern already
+      // used by the pickup-OTP flow when it navigates back to Orders).
+      navigation.navigate('Delivery', { order: confirmedOrder });
+      setOtpConfirmLoading(false);
+    }, 300);
   };
 
   // --- Filter menu / calendar orchestration --------------------------
-  const openFilterMenu = () => setFilterMenuVisible(true);
+  const openFilterMenu = () => {
+    setFilterLoading(true);
+    setTimeout(() => {
+      setFilterMenuVisible(true);
+      setFilterLoading(false);
+    }, 300);
+  };
   const closeFilterMenu = () => setFilterMenuVisible(false);
 
   const handleChooseSingleDate = () => {
@@ -605,11 +684,13 @@ export default function OrdersScreen({ navigation, route }) {
           <View style={styles.mainTabRow}>
             {MAIN_TABS.map(tab => {
               const active = mainTab === tab;
+              const isTabLoading = tabLoading === tab;
               return (
                 <TouchableOpacity
                   key={tab}
                   activeOpacity={0.85}
                   onPress={() => handleMainTabPress(tab)}
+                  disabled={isTabLoading}
                   style={[
                     styles.mainTabButton,
                     {
@@ -618,39 +699,84 @@ export default function OrdersScreen({ navigation, route }) {
                     },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.mainTabText,
-                      {
-                        color: active
-                          ? colors.NavbarTextColour
-                          : colors.subText,
-                      },
-                    ]}
-                  >
-                    {tab}
-                  </Text>
+                  {isTabLoading ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={active ? colors.NavbarTextColour : colors.subText}
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.mainTabText,
+                        {
+                          color: active
+                            ? colors.NavbarTextColour
+                            : colors.subText,
+                        },
+                      ]}
+                    >
+                      {tab}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          {/* Date + Filter row — same filter used on all 3 tabs
-          (Pickups / Picked Up / Deliveries). Tapping the Filter icon
-          opens a menu to choose Single Date or Date Range. */}
-          <View style={styles.dateFilterRow}>
-            <Text style={[styles.dateText, { color: colors.text }]}>
-              {formatTodayLabel()}
-            </Text>
+          {/* Date + Filter row — matches the reference screenshot:
+          calendar icon chip + "Today, D Mon" / weekday on the left,
+          pill-shaped "All Dates" filter button (icon + label + chevron)
+          on the right. Same filter used on all 3 tabs. Tapping the
+          Filter icon opens a menu to choose Single Date or Date Range —
+          logic is unchanged. */}
+          <View
+            style={[
+              styles.dateFilterCard,
+              { backgroundColor: colors.card, shadowColor: colors.shadow },
+            ]}
+          >
+            <View style={styles.dateLeftRow}>
+              <View
+                style={[
+                  styles.calendarIconBox,
+                  { backgroundColor: colors.EditIconBack },
+                ]}
+              >
+                <Calendar size={18} color={colors.primary} />
+              </View>
+              <View>
+                <Text style={[styles.dateTitleText, { color: colors.text }]}>
+                  {formatTodayLabel()}
+                </Text>
+                <Text style={[styles.dateSubText, { color: colors.subText }]}>
+                  {formatWeekdayLabel()}
+                </Text>
+              </View>
+            </View>
+
             <TouchableOpacity
               activeOpacity={0.8}
-              style={styles.filterButton}
+              style={[
+                styles.filterPillButton,
+                { borderColor: colors.border, backgroundColor: colors.card },
+              ]}
               onPress={openFilterMenu}
+              disabled={filterLoading}
             >
-              <Filter size={14} color={colors.primary} />
-              <Text style={[styles.filterText, { color: colors.primary }]}>
-                {filterLabel}
-              </Text>
+              {filterLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <Filter size={14} color={colors.primary} />
+                  <Text
+                    style={[styles.filterPillText, { color: colors.primary }]}
+                    numberOfLines={1}
+                  >
+                    {filterLabel}
+                  </Text>
+                  <ChevronDown size={14} color={colors.primary} />
+                </>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -673,6 +799,7 @@ export default function OrdersScreen({ navigation, route }) {
                   order={order}
                   onNavigate={handleNavigate}
                   onViewDetails={handleViewDetails}
+                  viewDetailsLoading={viewDetailsLoadingId === order.id}
                 />
               ))
             ) : mainTab === 'Picked Up' ? (
@@ -684,6 +811,8 @@ export default function OrdersScreen({ navigation, route }) {
                   deliveredOverrideIds={deliveredOverrideIds}
                   onNavigate={handleNavigate}
                   onDeliverPress={openOtpModal}
+                  deliverLoading={deliverLoadingId === order.id}
+                  navigateLoading={navigateLoadingId === order.id}
                 />
               ))
             ) : (
@@ -694,6 +823,8 @@ export default function OrdersScreen({ navigation, route }) {
                   deliveredOverrideIds={deliveredOverrideIds}
                   onNavigate={handleNavigate}
                   onDeliverPress={openOtpModal}
+                  deliverLoading={deliverLoadingId === order.id}
+                  navigateLoading={navigateLoadingId === order.id}
                 />
               ))
             )}
@@ -812,6 +943,7 @@ export default function OrdersScreen({ navigation, route }) {
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={closeOtpModal}
+                    disabled={otpCancelLoading}
                     style={[
                       styles.outlineButton,
                       {
@@ -820,23 +952,40 @@ export default function OrdersScreen({ navigation, route }) {
                       },
                     ]}
                   >
-                    <Text
-                      style={[styles.outlineButtonText, { color: colors.text }]}
-                    >
-                      Cancel
-                    </Text>
+                    {otpCancelLoading ? (
+                      <ActivityIndicator size="small" color={colors.text} />
+                    ) : (
+                      <Text
+                        style={[
+                          styles.outlineButtonText,
+                          { color: colors.text },
+                        ]}
+                      >
+                        Cancel
+                      </Text>
+                    )}
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={handleOtpConfirm}
+                    disabled={otpConfirmLoading}
                     style={[
                       styles.pickButton,
                       { backgroundColor: colors.primary },
                     ]}
                   >
-                    <Check size={14} color={colors.NavbarTextColour} />
-                    <Text style={styles.pickButtonText}>Confirm</Text>
+                    {otpConfirmLoading ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={colors.NavbarTextColour}
+                      />
+                    ) : (
+                      <>
+                        <Check size={14} color={colors.NavbarTextColour} />
+                        <Text style={styles.pickButtonText}>Confirm</Text>
+                      </>
+                    )}
                   </TouchableOpacity>
                 </View>
               </Pressable>
@@ -869,26 +1018,66 @@ const styles = StyleSheet.create({
   },
   mainTabButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
     marginHorizontal: 3,
-    borderRadius: RADIUS.tab,
+    borderRadius: 67,
   },
   mainTabText: { ...typography.bodyBold, fontWeight: '700' },
 
-  /* Date + Filter */
-  dateFilterRow: {
+  /* Date + Filter card — matches the reference screenshot:
+     [calendar icon]  Today, 7 Aug              [filter] All Dates [v]
+                       Friday
+  */
+  dateFilterCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
+    marginHorizontal: 24,
     marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
   },
-  dateText: { ...typography.bodyBold, fontWeight: '700' },
-  filterButton: { flexDirection: 'row', alignItems: 'center' },
-  filterText: { ...typography.bodySubText, fontWeight: '700', marginLeft: 4 },
+  dateLeftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  calendarIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  dateTitleText: { ...typography.bodyBold, fontWeight: '700' },
+  dateSubText: {
+    ...typography.small,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  filterPillButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.2,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginLeft: 10,
+  },
+  filterPillText: {
+    ...typography.bodySubText,
+    fontWeight: '700',
+    marginHorizontal: 5,
+  },
 
   scrollContent: {
     paddingHorizontal: 24,
@@ -986,7 +1175,8 @@ const styles = StyleSheet.create({
   /* Modals */
   modalBackdrop: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sheetHeaderRow: {
     flexDirection: 'row',
@@ -997,13 +1187,11 @@ const styles = StyleSheet.create({
   sheetTitle: { ...typography.h3, fontWeight: '800' },
 
   otpCard: {
-    marginHorizontal: 24,
-    marginBottom: 'auto',
-    marginTop: 'auto',
     alignSelf: 'center',
-    width: '85%',
+    width: '80%',
+    maxWidth: 320,
     borderRadius: RADIUS.sheet,
-    padding: 22,
+    padding: 20,
   },
   otpSubtitle: { ...typography.label, fontWeight: '500', marginBottom: 18 },
   otpBoxRow: {

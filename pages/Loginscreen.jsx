@@ -14,13 +14,18 @@ import {
   Keyboard,
   Platform,
   Dimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme, Fonts } from '../components/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import axios from 'axios';
+import { store } from '../App';
+
 import {
-  Phone,
+  Mail,
   Lock,
   Eye,
   EyeOff,
@@ -40,14 +45,106 @@ const BANNER_ASPECT_RATIO = BANNER_SOURCE_WIDTH / BANNER_SOURCE_HEIGHT;
 const BANNER_HEIGHT = SCREEN_WIDTH / BANNER_ASPECT_RATIO;
 
 export default function LoginScreen({ navigation }) {
-  const [mobile, setMobile] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('ravi.kumar@example.com');
+  const [password, setPassword] = useState('Ravi@123');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const { isDark, colors, typography } = useTheme();
 
+  const [loading, setLoading] = useState(false);
+
+  // ---------------------------------------------------------------------
+  // Validation state
+  // ---------------------------------------------------------------------
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
   const styles = getStyles(colors, typography);
 
+  // ---------------------------------------------------------------------
+  // Validation logic
+  // ---------------------------------------------------------------------
+  const validateEmail = value => {
+    if (!value || value.trim().length === 0) {
+      return 'Email is required';
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
+      return 'Enter a valid email address';
+    }
+    return '';
+  };
+
+  const validatePassword = value => {
+    if (!value || value.length === 0) {
+      return 'Password is required';
+    }
+    if (value.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return '';
+  };
+
+  const handleEmailChange = value => {
+    setEmail(value);
+    if (emailError) {
+      setEmailError(validateEmail(value));
+    }
+  };
+
+  const handlePasswordChange = value => {
+    setPassword(value);
+    if (passwordError) {
+      setPasswordError(validatePassword(value));
+    }
+  };
+
+  const handleLogin = async () => {
+    setLoading(true);
+
+    try {
+      const url = store.getState().globalurl.loginUrl;
+      const AuthUrl = store.getState().globalurl.Authorization;
+
+      const data = {
+        Query: {
+          usermailid: email,
+          password: password,
+        },
+      };
+
+      console.log('URL :', url);
+      console.log('Request :', JSON.stringify(data));
+
+      const response = await axios.get(url, {
+        params: {
+          data: JSON.stringify(data),
+        },
+        headers: {
+          Authorization: AuthUrl,
+        },
+      });
+
+      console.log('Response :', response.data);
+
+      if (response.data.Status === 'Y') {
+        const userData = response.data.Data;
+        console.log('User Data :', userData);
+
+        await AsyncStorage.setItem('UserData', JSON.stringify(userData));
+        setLoading(false);
+
+        navigation.replace('BottomTab');
+      } else {
+        setLoading(false);
+
+        Alert.alert('Login Failed', response.data.Message);
+      }
+    } catch (error) {
+      console.log('Login Error :', error);
+      setLoading(false);
+      Alert.alert('Error', 'Something went wrong');
+    }
+  };
   return (
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.background }]}
@@ -95,25 +192,39 @@ export default function LoginScreen({ navigation }) {
                 Welcome <Text style={styles.welcomeTextGreen}>back!</Text>
               </Text>
 
-              <Text style={styles.label}>Mobile Number</Text>
-              <View style={styles.inputRow}>
+              <Text style={styles.label}>Email</Text>
+              <View
+                style={[
+                  styles.inputRow,
+                  emailError ? styles.inputRowError : null,
+                ]}
+              >
                 <View style={styles.iconSquare}>
-                  <Phone size={18} color="#FFFFFF" />
+                  <Mail size={18} color="#FFFFFF" />
                 </View>
-                <Text style={styles.countryCode}>+91</Text>
 
                 <TextInput
                   style={styles.inputField}
-                  placeholder="Enter mobile number"
+                  placeholder="Enter your email"
                   placeholderTextColor={colors.subText}
-                  keyboardType="phone-pad"
-                  value={mobile}
-                  onChangeText={setMobile}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={handleEmailChange}
+                  onBlur={() => setEmailError(validateEmail(email))}
                 />
               </View>
+              {emailError ? (
+                <Text style={styles.errorText}>{emailError}</Text>
+              ) : null}
 
               <Text style={styles.label}>Password</Text>
-              <View style={styles.inputRow}>
+              <View
+                style={[
+                  styles.inputRow,
+                  passwordError ? styles.inputRowError : null,
+                ]}
+              >
                 <View style={styles.iconSquare}>
                   <Lock size={18} color="#FFFFFF" />
                 </View>
@@ -123,7 +234,8 @@ export default function LoginScreen({ navigation }) {
                   placeholderTextColor={colors.subText}
                   //secureTextEntry={!showPassword}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={handlePasswordChange}
+                  onBlur={() => setPasswordError(validatePassword(password))}
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
@@ -135,6 +247,9 @@ export default function LoginScreen({ navigation }) {
                   )}
                 </TouchableOpacity>
               </View>
+              {passwordError ? (
+                <Text style={styles.errorText}>{passwordError}</Text>
+              ) : null}
 
               <View style={styles.optionsRow}>
                 <TouchableOpacity
@@ -154,28 +269,26 @@ export default function LoginScreen({ navigation }) {
                   </View>
                   <Text style={styles.rememberText}>Remember Me</Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity>
-                  <Text style={styles.forgotText}>Forgot Password?</Text>
-                </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => navigation.navigate('BottomTab')}
-              >
+              <TouchableOpacity activeOpacity={0.85} onPress={handleLogin}>
                 <LinearGradient
                   colors={colors.gradientPrimary}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
                   style={styles.loginButton}
                 >
-                  <Text style={styles.loginButtonText}>Login</Text>
-                  <ArrowRight
-                    size={20}
-                    color="#FFFFFF"
-                    style={styles.loginArrow}
-                  />
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Text style={styles.loginButtonText}>Login</Text>
+
+                      <ArrowRight
+                        size={20}
+                        color="#FFFFFF"
+                        style={styles.loginArrow}
+                      />
+                    </>
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -310,6 +423,17 @@ const getStyles = (colors, typography) =>
       shadowOpacity: 0.08,
       shadowRadius: 10,
       elevation: 3,
+    },
+    inputRowError: {
+      borderColor: '#E53935',
+    },
+    errorText: {
+      fontFamily: Fonts.bodyRegular,
+      fontSize: 12,
+      color: '#E53935',
+      marginTop: -12,
+      marginBottom: 14,
+      marginLeft: 4,
     },
     iconSquare: {
       width: 36,
