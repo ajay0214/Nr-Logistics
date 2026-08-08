@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,15 @@ import {
   Linking,
   Modal,
   Pressable,
-  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomHeader from '../components/CustomHeader';
 import { useTheme } from '../components/ThemeContext';
 //import CustomBottomTab from './Custombottomtab';
 import { addConfirmedOrder } from './DeliveryConfirmationStore';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { store } from '../App';
 
 import {
   Package,
@@ -31,8 +33,6 @@ const RADIUS = {
   button: 18,
   modal: 22,
 };
-
-const OTP_LENGTH = 4;
 
 // Converts a theme hex color (e.g. colors.subText) into an rgba() string,
 // used here for the soft neutral background behind Delivery Notes so it
@@ -417,62 +417,12 @@ function DeliveryNotesCard({ notes }) {
   );
 }
 
-// Renders the OTP as OTP_LENGTH separate boxes, each showing one digit.
-// These boxes are purely visual (pointerEvents="none") — the real
-// TextInput is rendered on top, full-size and invisible, so taps and
-// typing actually reach it. otp state / onChangeOtp logic is untouched.
-function OtpBoxes({ otp, error, colors }) {
-  const digits = Array.from({ length: OTP_LENGTH }, (_, i) => otp[i] || '');
-
-  return (
-    <View style={styles.otpBoxesRow} pointerEvents="none">
-      {digits.map((digit, index) => {
-        const isFilled = digit !== '';
-        const isActive = index === otp.length && otp.length < OTP_LENGTH;
-
-        return (
-          <View
-            key={index}
-            style={[
-              styles.otpBox,
-              {
-                borderColor: error
-                  ? colors.DeleteIcon
-                  : isActive || isFilled
-                  ? colors.DarkGreenColor || colors.primary
-                  : colors.border,
-                backgroundColor: colors.background,
-              },
-            ]}
-          >
-            <Text style={[styles.otpBoxText, { color: colors.text }]}>
-              {digit}
-            </Text>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-// The OTP modal now serves the "Confirm Pickup" action for this screen —
-// title/subtitle reflect a pickup confirmation instead of a delivery one.
-// Structure, state handling (otp / error / onVerify) is unchanged.
-function OtpModal({
-  visible,
-  order,
-  otp,
-  error,
-  onChangeOtp,
-  onCancel,
-  onVerify,
-}) {
+// Small, simple Cancel / Confirm dialog asking the user to confirm the
+// pickup — only ever opened for orders that are NOT already picked up
+// (see isPickedUp check in the screen below). onConfirm fires the same
+// pickup confirmation logic (handleConfirmPickup) as before.
+function ConfirmPickupModal({ visible, order, onCancel, onConfirm }) {
   const { colors, typography } = useTheme();
-  const hiddenInputRef = useRef(null);
-
-  const focusHiddenInput = () => {
-    hiddenInputRef.current?.focus();
-  };
 
   return (
     <Modal
@@ -480,7 +430,6 @@ function OtpModal({
       transparent
       animationType="fade"
       onRequestClose={onCancel}
-      onShow={focusHiddenInput}
     >
       <Pressable
         style={[styles.modalBackdrop, { backgroundColor: colors.modalOverlay }]}
@@ -513,7 +462,7 @@ function OtpModal({
           <Text
             style={[typography.h3, styles.modalTitle, { color: colors.text }]}
           >
-            Enter Pickup OTP
+            Confirm Pickup
           </Text>
           <Text
             style={[
@@ -522,39 +471,9 @@ function OtpModal({
               { color: colors.subText },
             ]}
           >
-            Enter the 4-digit OTP shared by {order?.customerName} to confirm
-            pickup of {order?.orderId}.
+            Are you sure you want to confirm pickup of {order?.orderId} from{' '}
+            {order?.customerName}?
           </Text>
-
-          <View style={styles.otpInputWrap}>
-            <OtpBoxes otp={otp} error={error} colors={colors} />
-
-            {/* Real input — sits on top of the boxes (invisible) so taps
-                and the keyboard actually reach it. otp / onChangeOtp /
-                validation logic is unchanged. */}
-            <TextInput
-              ref={hiddenInputRef}
-              value={otp}
-              onChangeText={onChangeOtp}
-              keyboardType="number-pad"
-              maxLength={OTP_LENGTH}
-              style={styles.hiddenOtpInput}
-              caretHidden
-              autoFocus
-            />
-          </View>
-
-          {error ? (
-            <Text
-              style={[
-                typography.label,
-                styles.otpErrorText,
-                { color: colors.DeleteIcon },
-              ]}
-            >
-              {error}
-            </Text>
-          ) : null}
 
           <View style={styles.modalActionsRow}>
             <TouchableOpacity
@@ -579,7 +498,7 @@ function OtpModal({
 
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={onVerify}
+              onPress={onConfirm}
               style={[
                 styles.modalButton,
                 styles.modalConfirmButton,
@@ -593,7 +512,7 @@ function OtpModal({
                   { color: colors.NavbarTextColour },
                 ]}
               >
-                Verifyy
+                Confirm
               </Text>
             </TouchableOpacity>
           </View>
@@ -605,9 +524,7 @@ function OtpModal({
 
 export default function PickupDetailsScreen({ navigation, route }) {
   const { colors, typography, isDark } = useTheme();
-  const [otpModalVisible, setOtpModalVisible] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [otpError, setOtpError] = useState('');
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
 
   // Order data comes from route.params.order, passed in from OrdersScreen
   // when the user taps "View Details" on a pickup card. If this screen is
@@ -615,60 +532,140 @@ export default function PickupDetailsScreen({ navigation, route }) {
   // UI never breaks.
   const order = route?.params?.order || DEFAULT_ORDER;
 
+  // OrdersScreen tells us (via order.isPickedUp) whether this order has
+  // already been confirmed as picked up. If it has, this screen must
+  // NOT show the Confirm Pickup action again — the order is already
+  // done, so we just show it as completed instead.
+  const isPickedUp = order?.isPickedUp === true;
+
+  // Order data used for display — when already picked up, reflect that
+  // in the summary card's status/note without touching the raw order
+  // object the rest of the screen relies on.
+  const displayOrder = isPickedUp
+    ? {
+        ...order,
+        status: 'Picked Up',
+        statusNote: 'Order already picked up',
+      }
+    : order;
+
   // Confirms the pickup and reports it back to the Orders screen so the
-  // order can move into the "Picked Up" tab there (same pattern the old
+  // order can move into the "Completed" tab there (same pattern the old
   // "Mark as Delivered" flow used to navigate away with the updated order —
   // just pointed at "Orders" with a pickup-flavored payload instead).
-  const handleConfirmPickup = () => {
-    const pickedUpOrder = {
-      ...order,
-      status: 'Picked Up',
-      statusNote: 'Order picked up successfully',
-    };
 
-    addConfirmedOrder(pickedUpOrder);
+  const updateOrderStatus = async () => {
+    try {
+      const url = store.getState().globalurl.orderDetailsUpdateUrl;
 
-    navigation.navigate('BottomTab', {
-      screen: 'Orders',
-      params: {
-        confirmedPickupOrder: pickedUpOrder,
-      },
-    });
-  };
+      const AuthUrl = store.getState().globalurl.Authorization;
 
-  const handleOpenOtpModal = () => {
-    setOtp('');
-    setOtpError('');
-    setOtpModalVisible(true);
-  };
+      // Get logged-in user
+      const userData = await AsyncStorage.getItem('UserData');
 
-  const handleCancelOtp = () => {
-    setOtpModalVisible(false);
-    setOtp('');
-    setOtpError('');
-  };
+      if (!userData) {
+        console.log('UserData not found');
+        return false;
+      }
 
-  const handleChangeOtp = value => {
-    const digitsOnly = value.replace(/[^0-9]/g, '').slice(0, 4);
-    setOtp(digitsOnly);
-    if (otpError) setOtpError('');
-  };
+      const user = JSON.parse(userData);
 
-  const handleVerifyOtp = () => {
-    if (otp.length !== 4) {
-      setOtpError('Please enter a valid 4-digit OTP.');
-      return;
+      console.log('Logged User:', user);
+
+      // API request body
+      const requestData = {
+        OrderID: String(order?.apiData?.RecordID || order?.id),
+
+        ExecutiveID: String(user?.RecordID),
+
+        OrderStatus: 'Picked',
+
+        CompanyID: String(order?.apiData?.CompanyID || user?.CompanyID),
+      };
+
+      console.log('Update Order URL:', url);
+
+      console.log('Update Order Request:', JSON.stringify(requestData));
+
+      const response = await axios.post(url, requestData, {
+        headers: {
+          Authorization: AuthUrl,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
+
+      console.log('Update Order Response:', response.data);
+
+      return response.data;
+    } catch (error) {
+      console.log(
+        'Update Order API Error:',
+        error.response?.data || error.message,
+      );
+
+      throw error;
     }
-
-    setOtpModalVisible(false);
-    setOtp('');
-    setOtpError('');
-
-    // Same "verify then act" pattern as before — now fires the
-    // pickup-confirmation instead of a delivery-confirmation.
-    handleConfirmPickup();
   };
 
+  const handleConfirmPickup = async () => {
+    try {
+      console.log('Confirm Pickup clicked');
+
+      // Call API first
+      const result = await updateOrderStatus();
+
+      console.log('Status Update Result:', result);
+
+      // Check API success
+      if (result?.Status !== 'Y' && result?.status !== 'Y') {
+        console.log('Order status update failed');
+
+        return;
+      }
+
+      // API success
+      const pickedUpOrder = {
+        ...order,
+        status: 'Picked Up',
+        statusNote: 'Order picked up successfully',
+        isPickedUp: true,
+      };
+
+      // Save locally
+      addConfirmedOrder(pickedUpOrder);
+
+      // Navigate back to Orders
+      navigation.navigate('BottomTab', {
+        screen: 'Orders',
+        params: {
+          confirmedPickupOrder: pickedUpOrder,
+        },
+      });
+    } catch (error) {
+      console.log(
+        'Confirm Pickup Error:',
+        error.response?.data || error.message,
+      );
+    }
+  };
+  const handleOpenConfirmModal = () => {
+    // Safety guard — the button that calls this is already hidden when
+    // isPickedUp is true, but this keeps the modal from ever opening
+    // for an already-completed order.
+    if (isPickedUp) return;
+    setConfirmModalVisible(true);
+  };
+
+  const handleCancelConfirm = () => {
+    setConfirmModalVisible(false);
+  };
+
+  const handleConfirmModalConfirm = async () => {
+    setConfirmModalVisible(false);
+
+    await handleConfirmPickup();
+  };
   const handleContactCustomer = () => {
     const phone = order.contactNumber?.replace(/\s+/g, '');
     if (phone) {
@@ -704,7 +701,7 @@ export default function PickupDetailsScreen({ navigation, route }) {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            <SummaryCard order={order} />
+            <SummaryCard order={displayOrder} />
 
             <SectionTitle>Delivery Addresses</SectionTitle>
             <RouteCard order={order} />
@@ -724,24 +721,48 @@ export default function PickupDetailsScreen({ navigation, route }) {
                 },
               ]}
             >
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={handleOpenOtpModal}
-                style={[
-                  styles.primaryButton,
-                  { backgroundColor: colors.DarkGreenColor || colors.primary },
-                ]}
-              >
-                <Text
+              {isPickedUp ? (
+                // Already picked up — no Confirm Pickup action needed,
+                // just show a plain "Already Picked Up" indicator.
+                <View
                   style={[
-                    typography.button,
-                    styles.primaryButtonText,
-                    { color: colors.NavbarTextColour, fontSize: 12 },
+                    styles.pickedUpIndicator,
+                    { backgroundColor: colors.statusPickedUpBg },
                   ]}
                 >
-                  Confirm Pickup
-                </Text>
-              </TouchableOpacity>
+                  <ShieldCheck size={16} color={colors.statusPickedUpText} />
+                  <Text
+                    style={[
+                      typography.button,
+                      styles.pickedUpIndicatorText,
+                      { color: colors.statusPickedUpText, fontSize: 12 },
+                    ]}
+                  >
+                    Already Picked Up
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleOpenConfirmModal}
+                  style={[
+                    styles.primaryButton,
+                    {
+                      backgroundColor: colors.DarkGreenColor || colors.primary,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.button,
+                      styles.primaryButtonText,
+                      { color: colors.NavbarTextColour, fontSize: 12 },
+                    ]}
+                  >
+                    Confirm Pickup
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -762,15 +783,14 @@ export default function PickupDetailsScreen({ navigation, route }) {
             </View>
           </ScrollView>
 
-          <OtpModal
-            visible={otpModalVisible}
-            order={order}
-            otp={otp}
-            error={otpError}
-            onChangeOtp={handleChangeOtp}
-            onCancel={handleCancelOtp}
-            onVerify={handleVerifyOtp}
-          />
+          {!isPickedUp && (
+            <ConfirmPickupModal
+              visible={confirmModalVisible}
+              order={order}
+              onCancel={handleCancelConfirm}
+              onConfirm={handleConfirmModalConfirm}
+            />
+          )}
 
           {/* <CustomBottomTab
         activeTab="Pickup"
@@ -960,6 +980,21 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   primaryButtonText: {},
+  // Shown instead of the primaryButton when the order is already
+  // picked up — same footprint as primaryButton so the layout doesn't
+  // shift, just non-interactive.
+  pickedUpIndicator: {
+    flex: 1,
+    height: 52,
+    borderRadius: RADIUS.button,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    marginRight: 10,
+  },
+  pickedUpIndicatorText: {
+    marginLeft: 8,
+  },
   secondaryButton: {
     flex: 1,
     height: 52,
@@ -974,7 +1009,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  // OTP Modal styles
+  // Confirm modal styles
   modalBackdrop: {
     flex: 1,
     alignItems: 'center',
@@ -1013,47 +1048,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 19,
     marginBottom: 18,
-  },
-
-  // Boxed OTP input styles
-  otpInputWrap: {
-    width: '100%',
-    marginBottom: 6,
-    position: 'relative',
-  },
-  otpBoxesRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  otpBox: {
-    width: 52,
-    height: 56,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 6,
-  },
-  otpBoxText: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  // Covers the whole boxes row, invisible, but is the real tappable/
-  // typeable input — this is what actually receives focus and text.
-  hiddenOtpInput: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0,
-    zIndex: 10,
-  },
-
-  otpErrorText: {
-    marginBottom: 10,
-    alignSelf: 'flex-start',
   },
   modalActionsRow: {
     flexDirection: 'row',

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
-  Modal,
-  TextInput,
-  Pressable,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomHeader from '../components/CustomHeader';
 // import CustomBottomTab from './Custombottomtab';
 import { useTheme, typography } from '../components/ThemeContext';
-import dashboardData from '../components/data.json';
 import CalendarDateFilter, {
   parseOrderDate,
   formatDateLabel,
@@ -23,7 +19,6 @@ import CalendarDateFilter, {
 } from './CalendarDateFilter';
 import CalendarRangeFilter from './CalendarRangeFilter';
 import FilterMenu from './FilterMenu';
-import { addConfirmedOrder } from './DeliveryConfirmationStore';
 
 import {
   MapPin,
@@ -33,11 +28,14 @@ import {
   Inbox,
   Check,
   Navigation,
-  X,
-  ShieldCheck,
   Filter,
   ChevronDown,
 } from 'lucide-react-native';
+
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { store } from '../App';
+import { useFocusEffect } from '@react-navigation/native';
 
 const RADIUS = {
   card: 24,
@@ -46,8 +44,11 @@ const RADIUS = {
   sheet: 24,
 };
 
-// Top-level tabs — "Picked Up" sits between Pickups and Deliveries
-const MAIN_TABS = ['Pickups', 'Picked Up', 'Deliveries'];
+// Only two tabs now — "Pickup" (shows every order, assigned or already
+// picked up) and "Completed" (shows only the ones already confirmed as
+// picked up). The old "Deliveries" tab / deliver-confirm flow has been
+// removed since this screen is pickup-only now.
+const MAIN_TABS = ['Pickup', 'Completed'];
 
 function getPickupStatusColors(status, colors) {
   switch (status) {
@@ -60,28 +61,14 @@ function getPickupStatusColors(status, colors) {
   }
 }
 
-function getDeliveryStatusColors(status, colors) {
-  switch (status) {
-    case 'Assigned':
-      return {
-        color: colors.statusPickedUpText,
-        bg: colors.statusPickedUpBg,
-      };
-    default:
-      return {
-        color: colors.subText,
-        bg: colors.border,
-      };
-  }
-}
-/* Derive display status purely from existing data fields (deliveryIn) —
-   no new source-of-truth fields required. */
-function getPickupStatus(order) {
-  return order.deliveryIn === 'Cancelled' ? 'Cancelled' : 'Picked Up';
-}
-
-function getDeliveryStatus(order) {
-  return 'Assigned';
+/* Status shown on each card. isPickedUp comes from the parent's
+   pickedUpIds tracking (set once the user confirms pickup on the Order
+   Details screen) — this is what lets the same "Pickup" list show both
+   still-assigned orders and already-picked-up orders with a different
+   badge, without removing them from the list. */
+function getPickupStatus(order, isPickedUp) {
+  if (order.deliveryIn === 'Cancelled') return 'Cancelled';
+  return isPickedUp ? 'Picked Up' : 'Assigned';
 }
 
 function formatTodayLabel() {
@@ -99,12 +86,21 @@ function formatWeekdayLabel() {
 
 /* ---------------------------------------------------
    PICKUP CARD
-   (No OTP button here anymore — pickup confirmation now
-   happens on the Order Details screen via "View Details".)
+   Used on BOTH tabs. Shows a status badge (Assigned / Picked Up) based
+   on the isPickedUp flag passed in. "View Details" always goes to the
+   Order Details screen — for an Assigned order that screen shows the
+   Confirm Pickup action; for an already Picked Up order it just shows
+   the order as completed (no Confirm Pickup needed again).
 --------------------------------------------------- */
-function PickupCard({ order, onNavigate, onViewDetails, viewDetailsLoading }) {
+function PickupCard({
+  order,
+  isPickedUp,
+  onNavigate,
+  onViewDetails,
+  viewDetailsLoading,
+}) {
   const { colors } = useTheme();
-  const status = getPickupStatus(order);
+  const status = getPickupStatus(order, isPickedUp);
   const statusConfig = getPickupStatusColors(status, colors);
 
   return (
@@ -121,6 +117,21 @@ function PickupCard({ order, onNavigate, onViewDetails, viewDetailsLoading }) {
           </Text>
           <Text style={[styles.orderId, { color: colors.primary }]}>
             {order.orderId}
+          </Text>
+        </View>
+
+        <View
+          style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}
+        >
+          {status === 'Picked Up' ? (
+            <Check
+              size={11}
+              color={statusConfig.color}
+              style={{ marginRight: 4 }}
+            />
+          ) : null}
+          <Text style={[styles.statusBadgeText, { color: statusConfig.color }]}>
+            {status}
           </Text>
         </View>
       </View>
@@ -194,192 +205,17 @@ function PickupCard({ order, onNavigate, onViewDetails, viewDetailsLoading }) {
 }
 
 /* ---------------------------------------------------
-   DELIVERY CARD
---------------------------------------------------- */
-function DeliveryCard({
-  order,
-  deliveredOverrideIds,
-  onNavigate,
-  onDeliverPress,
-  deliverLoading,
-  navigateLoading,
-}) {
-  const { colors } = useTheme();
-  const status = getDeliveryStatus(order, deliveredOverrideIds);
-  const statusConfig = getDeliveryStatusColors(status, colors);
-  const isCod = order.paymentMethod === 'Cash on Delivery';
-  const isFinal = false;
-  return (
-    <View
-      style={[
-        styles.orderCard,
-        { backgroundColor: colors.card, shadowColor: colors.shadow },
-      ]}
-    >
-      <View style={styles.cardHeaderRow}>
-        <View>
-          <Text style={[styles.awbLabel, { color: colors.subText }]}>
-            AWB No.
-          </Text>
-          <Text style={[styles.orderId, { color: colors.primary }]}>
-            {order.orderId}
-          </Text>
-        </View>
-        <View
-          style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}
-        >
-          <Text style={[styles.statusBadgeText, { color: statusConfig.color }]}>
-            {status}
-          </Text>
-        </View>
-      </View>
-
-      <Text style={[styles.customerName, { color: colors.text }]}>
-        {order.customerName}
-      </Text>
-
-      <View style={styles.routeRow}>
-        <MapPin size={13} color={colors.primary} />
-        <Text
-          style={[styles.routeText, { color: colors.subText, marginLeft: 6 }]}
-          numberOfLines={1}
-        >
-          {order.destination.city}
-        </Text>
-      </View>
-
-      <View style={styles.metaRow}>
-        <View style={styles.orderFooterItem}>
-          <Package size={13} color={colors.subText} />
-          <Text style={[styles.orderFooterText, { color: colors.subText }]}>
-            {order.packages} {order.packages > 1 ? 'Parcels' : 'Parcel'}
-          </Text>
-        </View>
-        <View style={styles.orderFooterItem}>
-          <Weight size={13} color={colors.subText} />
-          <Text style={[styles.orderFooterText, { color: colors.subText }]}>
-            {order.weight.toFixed(1)} Kg
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.pillRow}>
-        <View
-          style={[
-            styles.smallPill,
-            { backgroundColor: isCod ? '#FFF3E0' : '#F1E9FB' },
-          ]}
-        >
-          <Text
-            style={[
-              styles.smallPillText,
-              { color: isCod ? '#B26A00' : '#6A3EB5' },
-            ]}
-          >
-            {isCod ? `COD: \u20B9${order.codAmount}` : 'Prepaid'}
-          </Text>
-        </View>
-
-        {!isFinal && (
-          <View
-            style={[styles.smallPill, { backgroundColor: colors.EditIconBack }]}
-          >
-            <ShieldCheck size={11} color={colors.primary} />
-            <Text
-              style={[
-                styles.smallPillText,
-                { color: colors.primary, marginLeft: 4 },
-              ]}
-            >
-              OTP Required
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.windowRow}>
-        <Calendar size={13} color={colors.subText} />
-        <Text style={[styles.windowText, { color: colors.subText }]}>
-          Delivery: {order.date}, {order.deliveryWindow}
-        </Text>
-      </View>
-
-      <View style={[styles.orderFooterRow, { borderTopColor: colors.border }]}>
-        {isFinal ? (
-          <View
-            style={[
-              styles.pickButton,
-              { backgroundColor: colors.border, flex: 1 },
-            ]}
-          >
-            <Text style={[styles.pickButtonText, { color: colors.subText }]}>
-              {status}
-            </Text>
-          </View>
-        ) : (
-          <>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => onDeliverPress(order)}
-              disabled={deliverLoading}
-              style={[styles.pickButton, { backgroundColor: colors.primary }]}
-            >
-              {deliverLoading ? (
-                <ActivityIndicator
-                  size="small"
-                  color={colors.NavbarTextColour}
-                />
-              ) : (
-                <>
-                  <Check size={14} color={colors.NavbarTextColour} />
-                  <Text style={styles.pickButtonText}>Deliver</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => onNavigate(order)}
-              disabled={navigateLoading}
-              style={[
-                styles.outlineButton,
-                {
-                  borderColor: colors.border,
-                  backgroundColor: colors.card,
-                  marginLeft: 20,
-                },
-              ]}
-            >
-              {navigateLoading ? (
-                <ActivityIndicator size="small" color={colors.text} />
-              ) : (
-                <>
-                  <Navigation size={14} color={colors.text} />
-                  <Text
-                    style={[styles.outlineButtonText, { color: colors.text }]}
-                  >
-                    Navigate
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-    </View>
-  );
-}
-
-/* ---------------------------------------------------
    MAIN SCREEN
 --------------------------------------------------- */
 export default function OrdersScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
 
-  const [mainTab, setMainTab] = useState('Pickups'); // 'Pickups' | 'Picked Up' | 'Deliveries'
+  const [mainTab, setMainTab] = useState('Pickup'); // 'Pickup' | 'Completed'
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   // Calendar-based date filter (replaces the old status filter modal).
-  // selectedDate === null means "All Dates". Shared across all 3 tabs —
+  // selectedDate === null means "All Dates". Shared across both tabs —
   // each tab keeps its own scoped order list, only the date narrows it.
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -398,44 +234,300 @@ export default function OrdersScreen({ navigation, route }) {
   // between "Single Date" and "Date Range".
   const [filterMenuVisible, setFilterMenuVisible] = useState(false);
 
-  const [deliveredOverrideIds, setDeliveredOverrideIds] = useState([]);
-
-  // Tracks orders that were confirmed picked-up (via OTP, done on the
-  // Order Details screen now). These orders move out of "Pickups" and
-  // into the "Picked Up" tab.
+  // Tracks orders that were confirmed picked-up (via the Order Details
+  // screen). Once an order's id is in here, its card shows "Picked Up"
+  // instead of "Assigned" on the Pickup tab, AND it appears in the
+  // Completed tab. It never needs to be picked again.
   const [pickedUpIds, setPickedUpIds] = useState([]);
-
-  const [otpVisible, setOtpVisible] = useState(false);
-  const [otpOrder, setOtpOrder] = useState(null);
-  const [otpDigits, setOtpDigits] = useState(['', '', '', '']);
-  const [otpError, setOtpError] = useState('');
-  const otpRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
 
   // ---- Activity-indicator loading states (UI only — logic unchanged) ----
   const [tabLoading, setTabLoading] = useState(null); // which tab label is loading
   const [filterLoading, setFilterLoading] = useState(false);
   const [viewDetailsLoadingId, setViewDetailsLoadingId] = useState(null);
   const [navigateLoadingId, setNavigateLoadingId] = useState(null);
-  const [deliverLoadingId, setDeliverLoadingId] = useState(null);
-  const [otpCancelLoading, setOtpCancelLoading] = useState(false);
-  const [otpConfirmLoading, setOtpConfirmLoading] = useState(false);
 
-  const orders = useMemo(() => dashboardData.orders, []);
-
-  // Pick up the result of the OTP confirmation done on the Order
+  // Pick up the result of the pickup confirmation done on the Order
   // Details screen. That screen navigates back here with
   // route.params.confirmedPickupOrder set — we store the id and jump
-  // the user to the "Picked Up" tab so they see it land there. Since
-  // the "Deliveries" tab already lists every non-delivered order (see
-  // scopedOrders below), the same order is immediately visible there
-  // too, with full Deliver/OTP functionality — no extra wiring needed.
+  // the user to the "Completed" tab so they see it land there.
+
+  const getOrderList = useCallback(async () => {
+    console.log('Fetching order list...');
+
+    try {
+      const url = store.getState().globalurl.orderListUrl;
+      const AuthUrl = store.getState().globalurl.Authorization;
+
+      const userString = await AsyncStorage.getItem('UserData');
+
+      if (!userString) {
+        console.log('UserData not found');
+        return [];
+      }
+
+      const user = JSON.parse(userString);
+
+      console.log('User Data:', user);
+      console.log('ExecutiveID:', user?.RecordID);
+
+      const requestData = {
+        ExecutiveID: String(user?.RecordID),
+        OrdStatus: 'Assigned',
+      };
+
+      console.log('Order Request:', JSON.stringify(requestData));
+
+      const response = await axios.post(url, requestData, {
+        headers: {
+          Authorization: AuthUrl,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
+
+      console.log('Order Response:', response.data);
+
+      if (response.data?.Status === 'Y' && Array.isArray(response.data?.Data)) {
+        console.log('API Orders Count:', response.data.Data.length);
+
+        return response.data.Data;
+      }
+
+      console.log('No orders found');
+
+      return [];
+    } catch (error) {
+      console.log('Order API Error:', error.response?.data || error.message);
+
+      return [];
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const loadOrders = async () => {
+        setOrdersLoading(true);
+
+        try {
+          const apiOrders = await getOrderList();
+
+          console.log('API Orders:', apiOrders);
+
+          const formattedOrders = apiOrders.map(item => {
+            const createdDateTime = item.CreatedDateTime || '';
+
+            const [datePart, timePart] = createdDateTime.split(' ');
+
+            return {
+              // -------------------------
+              // BASIC
+              // -------------------------
+              id: item.RecordID,
+              orderId: item.OrderNumber,
+              status: item.OrderStatus,
+
+              // -------------------------
+              // CUSTOMER
+              // -------------------------
+              customerName: item.SenderName,
+              contactNumber: item.SenderContact,
+
+              // -------------------------
+              // PICKUP
+              // -------------------------
+              pickup: {
+                city: item.PickupFranchiseName || '',
+                address: item.SenderAddress || '',
+                note: `Pickup from ${item.PickupFranchiseName || ''}`,
+              },
+
+              // -------------------------
+              // DELIVERY
+              // -------------------------
+              destination: {
+                city: item.DeliveryFranchiseName || '',
+
+                // Franchise address
+                address: item.DeliveryFranchiseAddress || '',
+
+                // Actual receiver address
+                receiverAddress: item.ReceiverAddress || '',
+
+                note: `Delivery to ${item.DeliveryFranchiseName || ''}`,
+              },
+
+              // -------------------------
+              // DATE / TIME
+              // -------------------------
+              date: datePart || '',
+              time: timePart || '',
+
+              // -------------------------
+              // PACKAGE
+              // -------------------------
+              packages: 1,
+              packageType: item.PackageType || '',
+
+              // -------------------------
+              // WEIGHT
+              // -------------------------
+              weight: Number(item.ChargeableWeight || item.ActualWeight || 0),
+
+              actualWeight: Number(item.ActualWeight) || 0,
+
+              volumetricWeight: Number(item.VolumetricWeight) || 0,
+
+              chargeableWeight: Number(item.ChargeableWeight) || 0,
+
+              // -------------------------
+              // DIMENSIONS
+              // -------------------------
+              length: Number(item.Length) || 0,
+              breadth: Number(item.Breadth) || 0,
+              height: Number(item.Height) || 0,
+
+              // -------------------------
+              // SHIPPING
+              // -------------------------
+              shippingMode: item.ShippingMode || '',
+
+              recommendedMode: item.RecommendedMode || '',
+
+              // -------------------------
+              // PAYMENT
+              // -------------------------
+              paymentMethod:
+                String(item.PaymentMode).toLowerCase() === 'cod'
+                  ? 'Cash on Delivery'
+                  : 'Prepaid',
+
+              // IMPORTANT
+              orderTotal: `₹${Number(item.TotalShippingAmount || 0).toFixed(
+                2,
+              )}`,
+
+              // Keep individual charges too
+              baseShippingCharge: Number(item.BaseShippingCharge) || 0,
+
+              fuelSurcharge: Number(item.FuelSurcharge) || 0,
+
+              gstPercent: Number(item.GSTPercent) || 0,
+
+              gstAmount: Number(item.GSTAmount) || 0,
+
+              totalShippingAmount: Number(item.TotalShippingAmount) || 0,
+
+              // -------------------------
+              // OTHER
+              // -------------------------
+              deliveryPincode: item.DeliveryPincode || '',
+
+              pickupFranchiseID: item.PickupFranchiseID || '',
+
+              pickupFranchiseName: item.PickupFranchiseName || '',
+
+              deliveryFranchiseID: item.DeliveryFranchiseID || '',
+
+              deliveryFranchiseName: item.DeliveryFranchiseName || '',
+
+              deliveryFranchiseAddress: item.DeliveryFranchiseAddress || '',
+
+              receiverName: item.ReceiverName || '',
+
+              receiverContact: item.ReceiverContact || '',
+
+              receiverAddress: item.ReceiverAddress || '',
+
+              deliveryNotes: 'No delivery notes available.',
+
+              // Keep complete API object
+              apiData: item,
+            };
+          });
+
+          console.log('Formatted Orders:', formattedOrders);
+
+          setOrders(formattedOrders);
+        } catch (error) {
+          console.log('Load Orders Error:', error);
+          setOrders([]);
+        } finally {
+          setOrdersLoading(false);
+        }
+      };
+
+      loadOrders();
+    }, [getOrderList]),
+  );
+
+  // const loadOrders = async () => {
+  //   setOrdersLoading(true);
+
+  //   try {
+  //     const apiOrders = await getOrderList();
+
+  //     console.log('API Orders:', apiOrders);
+
+  //     const formattedOrders = apiOrders.map(item => ({
+  //       id: item.RecordID,
+
+  //       orderId: item.OrderNumber,
+
+  //       customerName: item.SenderName,
+
+  //       pickup: {
+  //         city: item.PickupFranchiseName || item.SenderAddress || '',
+  //       },
+
+  //       destination: {
+  //         city: item.DeliveryFranchiseName || item.ReceiverAddress || '',
+  //       },
+
+  //       packages: 1,
+
+  //       weight: Number(item.ChargeableWeight || item.ActualWeight || 0),
+
+  //       date: item.CreatedDateTime || '',
+
+  //       pickupWindow: '',
+
+  //       deliveryWindow: '',
+
+  //       paymentMethod:
+  //         String(item.PaymentMode).toLowerCase() === 'cod'
+  //           ? 'Cash on Delivery'
+  //           : 'Prepaid',
+
+  //       codAmount: Number(item.TotalShippingAmount) || 0,
+
+  //       status: item.OrderStatus,
+
+  //       // Keep original API data
+  //       apiData: item,
+  //     }));
+
+  //     console.log('Formatted Orders:', formattedOrders);
+
+  //     setOrders(formattedOrders);
+  //   } catch (error) {
+  //     console.log('Load Orders Error:', error);
+
+  //     setOrders([]);
+  //   } finally {
+  //     setOrdersLoading(false);
+  //   }
+  // };
+
+  // useEffect(() => {
+  //   loadOrders();
+  // }, []);
   useEffect(() => {
     const confirmed = route?.params?.confirmedPickupOrder;
     if (confirmed?.id != null) {
       setPickedUpIds(prev =>
         prev.includes(confirmed.id) ? prev : [...prev, confirmed.id],
       );
-      setMainTab('Picked Up');
+      setMainTab('Completed');
       setSelectedDate(null);
       setFromDate(null);
       setToDate(null);
@@ -457,27 +549,19 @@ export default function OrdersScreen({ navigation, route }) {
   };
 
   // Orders scoped to the current tab, BEFORE the date filter is applied.
-  // (Same grouping rules as before — only the filtering mechanism
-  // downstream changed from status to date, and now supports a range too.)
+  // - "Pickup" tab: every order, whether it's still Assigned or already
+  //   Picked Up — nothing gets removed from this list once picked up,
+  //   the card just shows a different status badge (see PickupCard).
+  // - "Completed" tab: only the orders that have been confirmed as
+  //   picked up (pickedUpIds).
   const scopedOrders = useMemo(() => {
-    if (mainTab === 'Pickups') {
-      // Orders still pending pickup (not yet confirmed via OTP)
-      return orders.filter(order => !pickedUpIds.includes(order.id));
+    if (mainTab === 'Completed') {
+      return orders.filter(order => pickedUpIds.includes(order.id));
     }
 
-    if (mainTab === 'Picked Up') {
-      // Orders confirmed picked-up and not yet delivered
-      return orders.filter(
-        order =>
-          pickedUpIds.includes(order.id) &&
-          !deliveredOverrideIds.includes(order.id),
-      );
-    }
-
-    // Deliveries tab — every order that hasn't been delivered yet is
-    // visible here (this already includes orders picked up via OTP).
-    return orders.filter(order => !deliveredOverrideIds.includes(order.id));
-  }, [orders, mainTab, deliveredOverrideIds, pickedUpIds]);
+    // 'Pickup' tab
+    return orders;
+  }, [orders, mainTab, pickedUpIds]);
 
   // Dates that actually have orders in the current tab — used to show
   // small dots on the calendar so the user knows where to look. Shared
@@ -529,82 +613,16 @@ export default function OrdersScreen({ navigation, route }) {
     }, 300);
   };
 
+  // Navigates to the Order Details screen. Passes along whether this
+  // order has already been picked up so that screen knows NOT to show
+  // the Confirm Pickup action again for it.
   const handleViewDetails = order => {
     setViewDetailsLoadingId(order.id);
     setTimeout(() => {
-      navigation.navigate?.('OrderDetails', { order });
+      navigation.navigate?.('OrderDetails', {
+        order: { ...order, isPickedUp: pickedUpIds.includes(order.id) },
+      });
       setViewDetailsLoadingId(null);
-    }, 300);
-  };
-
-  const openOtpModal = order => {
-    setDeliverLoadingId(order.id);
-    setTimeout(() => {
-      setOtpOrder(order);
-      setOtpDigits(['', '', '', '']);
-      setOtpError('');
-      setOtpVisible(true);
-      setDeliverLoadingId(null);
-    }, 300);
-  };
-
-  // Plain reset (no loading wrapper) — reused by both the Cancel button
-  // and the Confirm flow below.
-  const resetOtpModal = () => {
-    setOtpVisible(false);
-    setOtpOrder(null);
-    setOtpDigits(['', '', '', '']);
-    setOtpError('');
-  };
-
-  const closeOtpModal = () => {
-    setOtpCancelLoading(true);
-    setTimeout(() => {
-      resetOtpModal();
-      setOtpCancelLoading(false);
-    }, 300);
-  };
-
-  const handleOtpChange = (text, index) => {
-    const digit = text.replace(/[^0-9]/g, '').slice(-1);
-    const next = [...otpDigits];
-    next[index] = digit;
-    setOtpDigits(next);
-    setOtpError('');
-
-    if (digit && index < 3) {
-      otpRefs[index + 1].current?.focus();
-    }
-  };
-
-  const handleOtpKeyPress = (e, index) => {
-    if (e.nativeEvent.key === 'Backspace' && !otpDigits[index] && index > 0) {
-      otpRefs[index - 1].current?.focus();
-    }
-  };
-
-  const handleOtpConfirm = () => {
-    const code = otpDigits.join('');
-    if (code.length !== 4) {
-      setOtpError('Enter the complete 4-digit OTP');
-      return;
-    }
-
-    setOtpConfirmLoading(true);
-    const confirmedOrder = otpOrder;
-    setTimeout(() => {
-      setDeliveredOverrideIds(prev => [...prev, confirmedOrder.id]);
-      resetOtpModal();
-
-      // Push into the shared confirmed-orders store so it shows up on the
-      // Delivered Orders screen right away.
-      addConfirmedOrder({ ...confirmedOrder, status: 'Delivered' });
-
-      // Send the just-delivered order over to the Delivery screen so it
-      // shows up in that list right away (same hand-off pattern already
-      // used by the pickup-OTP flow when it navigates back to Orders).
-      navigation.navigate('Delivery', { order: confirmedOrder });
-      setOtpConfirmLoading(false);
     }, 300);
   };
 
@@ -674,7 +692,7 @@ export default function OrdersScreen({ navigation, route }) {
           backgroundColor={colors.primary}
         />
 
-        {/* Top tab bar: Pickups / Picked Up / Deliveries */}
+        {/* Top tab bar: Pickup / Completed */}
         <View
           style={{
             flex: 1,
@@ -726,7 +744,7 @@ export default function OrdersScreen({ navigation, route }) {
           {/* Date + Filter row — matches the reference screenshot:
           calendar icon chip + "Today, D Mon" / weekday on the left,
           pill-shaped "All Dates" filter button (icon + label + chevron)
-          on the right. Same filter used on all 3 tabs. Tapping the
+          on the right. Same filter used on both tabs. Tapping the
           Filter icon opens a menu to choose Single Date or Date Range —
           logic is unchanged. */}
           <View
@@ -792,39 +810,15 @@ export default function OrdersScreen({ navigation, route }) {
                   No orders yet
                 </Text>
               </View>
-            ) : mainTab === 'Pickups' ? (
+            ) : (
               filteredOrders.map(order => (
                 <PickupCard
                   key={order.id}
                   order={order}
+                  isPickedUp={pickedUpIds.includes(order.id)}
                   onNavigate={handleNavigate}
                   onViewDetails={handleViewDetails}
                   viewDetailsLoading={viewDetailsLoadingId === order.id}
-                />
-              ))
-            ) : mainTab === 'Picked Up' ? (
-              // Picked Up tab — same card & same "Deliver via OTP" function as Deliveries tab
-              filteredOrders.map(order => (
-                <DeliveryCard
-                  key={order.id}
-                  order={order}
-                  deliveredOverrideIds={deliveredOverrideIds}
-                  onNavigate={handleNavigate}
-                  onDeliverPress={openOtpModal}
-                  deliverLoading={deliverLoadingId === order.id}
-                  navigateLoading={navigateLoadingId === order.id}
-                />
-              ))
-            ) : (
-              filteredOrders.map(order => (
-                <DeliveryCard
-                  key={order.id}
-                  order={order}
-                  deliveredOverrideIds={deliveredOverrideIds}
-                  onNavigate={handleNavigate}
-                  onDeliverPress={openOtpModal}
-                  deliverLoading={deliverLoadingId === order.id}
-                  navigateLoading={navigateLoadingId === order.id}
                 />
               ))
             )}
@@ -880,117 +874,6 @@ export default function OrdersScreen({ navigation, route }) {
             onReset={handleResetRangeFilter}
             markedDates={markedDates}
           />
-
-          {/* ---------------- OTP MODAL (Deliveries / Picked Up tabs) ---------------- */}
-          <Modal visible={otpVisible} transparent animationType="fade">
-            <Pressable
-              style={[
-                styles.modalBackdrop,
-                { backgroundColor: colors.modalOverlay },
-              ]}
-              onPress={closeOtpModal}
-            >
-              <Pressable
-                style={[styles.otpCard, { backgroundColor: colors.modalCard }]}
-                onPress={() => {}}
-              >
-                <View style={styles.sheetHeaderRow}>
-                  <Text style={[styles.sheetTitle, { color: colors.text }]}>
-                    Enter Delivery OTP
-                  </Text>
-                  <TouchableOpacity onPress={closeOtpModal}>
-                    <X size={20} color={colors.subText} />
-                  </TouchableOpacity>
-                </View>
-
-                {otpOrder && (
-                  <Text style={[styles.otpSubtitle, { color: colors.subText }]}>
-                    {otpOrder.orderId} · {otpOrder.customerName}
-                  </Text>
-                )}
-
-                <View style={styles.otpBoxRow}>
-                  {otpDigits.map((digit, index) => (
-                    <TextInput
-                      key={index}
-                      ref={otpRefs[index]}
-                      value={digit}
-                      onChangeText={text => handleOtpChange(text, index)}
-                      onKeyPress={e => handleOtpKeyPress(e, index)}
-                      keyboardType="number-pad"
-                      maxLength={1}
-                      style={[
-                        styles.otpBox,
-                        {
-                          borderColor: digit ? colors.primary : colors.border,
-                          color: colors.text,
-                          backgroundColor: colors.background,
-                        },
-                      ]}
-                    />
-                  ))}
-                </View>
-
-                {!!otpError && (
-                  <Text
-                    style={[styles.otpErrorText, { color: colors.DeleteIcon }]}
-                  >
-                    {otpError}
-                  </Text>
-                )}
-
-                <View style={styles.otpButtonRow}>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={closeOtpModal}
-                    disabled={otpCancelLoading}
-                    style={[
-                      styles.outlineButton,
-                      {
-                        borderColor: colors.border,
-                        backgroundColor: colors.card,
-                      },
-                    ]}
-                  >
-                    {otpCancelLoading ? (
-                      <ActivityIndicator size="small" color={colors.text} />
-                    ) : (
-                      <Text
-                        style={[
-                          styles.outlineButtonText,
-                          { color: colors.text },
-                        ]}
-                      >
-                        Cancel
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={handleOtpConfirm}
-                    disabled={otpConfirmLoading}
-                    style={[
-                      styles.pickButton,
-                      { backgroundColor: colors.primary },
-                    ]}
-                  >
-                    {otpConfirmLoading ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={colors.NavbarTextColour}
-                      />
-                    ) : (
-                      <>
-                        <Check size={14} color={colors.NavbarTextColour} />
-                        <Text style={styles.pickButtonText}>Confirm</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </Pressable>
-            </Pressable>
-          </Modal>
         </View>
       </SafeAreaView>
     </>
@@ -1102,6 +985,8 @@ const styles = StyleSheet.create({
   awbLabel: { ...typography.label, fontWeight: '600', marginBottom: 2 },
   orderId: { ...typography.h3, fontWeight: '800' },
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
@@ -1120,17 +1005,6 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   orderFooterText: { ...typography.small, marginLeft: 5 },
-
-  pillRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
-  smallPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 10,
-    marginRight: 8,
-  },
-  smallPillText: { ...typography.small, fontWeight: '700' },
 
   windowRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
   windowText: { ...typography.label, fontWeight: '500', marginLeft: 6 },
@@ -1171,47 +1045,4 @@ const styles = StyleSheet.create({
 
   emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 80 },
   emptyText: { ...typography.bodySubText, marginTop: 10 },
-
-  /* Modals */
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sheetHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  sheetTitle: { ...typography.h3, fontWeight: '800' },
-
-  otpCard: {
-    alignSelf: 'center',
-    width: '80%',
-    maxWidth: 320,
-    borderRadius: RADIUS.sheet,
-    padding: 20,
-  },
-  otpSubtitle: { ...typography.label, fontWeight: '500', marginBottom: 18 },
-  otpBoxRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  otpBox: {
-    ...typography.h2,
-    width: 54,
-    height: 58,
-    borderRadius: 14,
-    borderWidth: 2,
-    textAlign: 'center',
-    fontWeight: '800',
-  },
-  otpErrorText: {
-    ...typography.label,
-    fontWeight: '600',
-    marginTop: 6,
-  },
-  otpButtonRow: { flexDirection: 'row', marginTop: 20 },
 });

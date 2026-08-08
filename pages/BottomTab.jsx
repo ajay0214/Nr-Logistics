@@ -37,7 +37,7 @@ const Tab = createBottomTabNavigator();
 // lucide icon whenever you like, no other code needs to change.
 const TAB_ICONS = {
   Overview: LayoutDashboard,
-  Orders: ShoppingBag,
+  Pickup: ShoppingBag,
   Delivery: Truck,
   Profile: User,
 };
@@ -332,7 +332,7 @@ export default function BottomTab({ route }) {
         })}
       >
         <Tab.Screen name="Overview" component={Dashboard} />
-        <Tab.Screen name="Orders" component={Orders} />
+        <Tab.Screen name="Pickup" component={Orders} />
         <Tab.Screen name="Delivery" component={Delivery} />
         <Tab.Screen name="Profile" component={Profile} />
       </Tab.Navigator>

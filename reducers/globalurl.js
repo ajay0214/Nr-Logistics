@@ -7,6 +7,8 @@ const initialState = {
     'eyJhbGciOiJIUzI1NiIsInR5cGUiOiJKV1QifQ.eyJzdWIiOiJCZXhAMTIzIiwibmFtZSI6IkJleCIsImFkbWluIjp0cnVlLCJleHAiOjE2Njk5ODQzNDl9.uxE3r3X4lqV_WKrRKRPXd-Jub9BnVcCXqCtLL4I0fpU',
 
   loginUrl: urlPath + 'MobileLController.php',
+  orderListUrl: urlPath + 'OrderList.php',
+  orderDetailsUpdateUrl: urlPath + 'ORDERSTATUSUPDATECONTROLLER.php',
 };
 
 export const getUrlSlice = createSlice({

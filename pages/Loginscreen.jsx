@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
   View,
@@ -44,11 +44,23 @@ const BANNER_SOURCE_HEIGHT = 1120;
 const BANNER_ASPECT_RATIO = BANNER_SOURCE_WIDTH / BANNER_SOURCE_HEIGHT;
 const BANNER_HEIGHT = SCREEN_WIDTH / BANNER_ASPECT_RATIO;
 
+// Storage keys used for "Remember Me" — kept separate from "UserData"
+// (the session key set on successful login) so that logging out doesn't
+// wipe the remembered email/password unless the user unchecks the box.
+const REMEMBER_ME_FLAG_KEY = 'RememberMeEnabled';
+const REMEMBER_ME_EMAIL_KEY = 'RememberMeEmail';
+const REMEMBER_ME_PASSWORD_KEY = 'RememberMePassword';
+
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('ravi.kumar@example.com');
-  const [password, setPassword] = useState('Ravi@123');
+  // const [email, setEmail] = useState('ravi.kumar@example.com');
+  // const [password, setPassword] = useState('Ravi@123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  // "Remember Me" now defaults to unchecked — it only becomes true if the
+  // user explicitly ticks it, or if we find a previously-remembered login
+  // (loaded in the useEffect below).
+  const [rememberMe, setRememberMe] = useState(false);
   const { isDark, colors, typography } = useTheme();
 
   const [loading, setLoading] = useState(false);
@@ -60,6 +72,34 @@ export default function LoginScreen({ navigation }) {
   const [passwordError, setPasswordError] = useState('');
 
   const styles = getStyles(colors, typography);
+
+  // ---------------------------------------------------------------------
+  // On mount: if the user previously logged in with "Remember Me" checked,
+  // prefill the email/password fields and re-check the box. If it was
+  // never checked (or was later unchecked / cleared), the fields stay
+  // empty and rememberMe stays false — this is what makes "Remember Me"
+  // actually remember something across app restarts / after logout.
+  // ---------------------------------------------------------------------
+  useEffect(() => {
+    const loadRememberedCredentials = async () => {
+      try {
+        const savedFlag = await AsyncStorage.getItem(REMEMBER_ME_FLAG_KEY);
+        if (savedFlag === 'true') {
+          const savedEmail = await AsyncStorage.getItem(REMEMBER_ME_EMAIL_KEY);
+          const savedPassword = await AsyncStorage.getItem(
+            REMEMBER_ME_PASSWORD_KEY,
+          );
+          if (savedEmail) setEmail(savedEmail);
+          if (savedPassword) setPassword(savedPassword);
+          setRememberMe(true);
+        }
+      } catch (error) {
+        console.log('Remember Me Load Error :', error);
+      }
+    };
+
+    loadRememberedCredentials();
+  }, []);
 
   // ---------------------------------------------------------------------
   // Validation logic
@@ -98,6 +138,24 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
+  // Saves or clears the remembered email/password depending on whether
+  // "Remember Me" is checked at the moment of a successful login.
+  const persistRememberMe = async () => {
+    try {
+      if (rememberMe) {
+        await AsyncStorage.setItem(REMEMBER_ME_FLAG_KEY, 'true');
+        await AsyncStorage.setItem(REMEMBER_ME_EMAIL_KEY, email);
+        await AsyncStorage.setItem(REMEMBER_ME_PASSWORD_KEY, password);
+      } else {
+        await AsyncStorage.removeItem(REMEMBER_ME_FLAG_KEY);
+        await AsyncStorage.removeItem(REMEMBER_ME_EMAIL_KEY);
+        await AsyncStorage.removeItem(REMEMBER_ME_PASSWORD_KEY);
+      }
+    } catch (error) {
+      console.log('Remember Me Persist Error :', error);
+    }
+  };
+
   const handleLogin = async () => {
     setLoading(true);
 
@@ -131,6 +189,7 @@ export default function LoginScreen({ navigation }) {
         console.log('User Data :', userData);
 
         await AsyncStorage.setItem('UserData', JSON.stringify(userData));
+        await persistRememberMe();
         setLoading(false);
 
         navigation.replace('BottomTab');
